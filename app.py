@@ -1,1027 +1,243 @@
+'''
+Testing Data
+User1:
+    Name: Sreya Kalyan
+    Email: sreyakalyan@icloud.com
+    Phone Number: 9100097570
+    Password: 'sreyakalyan'
+'''
+
 import os
-import random
-import string
 from functools import wraps
-from datetime import date, datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, session, flash, abort, jsonify
+from datetime import date
+from flask import Flask, render_template, request, redirect, url_for, session, flash, abort
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
-
-import database
+import mysql.connector
 
 load_dotenv()
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'cinesphere-dev-secret-key-2026')
+app.secret_key = os.getenv('SECRET_KEY', 'change-this-development-key')
 
-# Check and initialize database if using SQLite and empty
-if database.ACTIVE_ENGINE == 'sqlite':
-    if not os.path.exists(database.SQLITE_DB_PATH) or os.path.getsize(database.SQLITE_DB_PATH) == 0:
-        database.init_sqlite_db()
-    else:
-        # Check if table exists
-        try:
-            cnt = database.query("SELECT COUNT(*) as c FROM sqlite_master WHERE type='table' AND name='screening'", one=True)
-            if not cnt or cnt['c'] == 0:
-                database.init_sqlite_db()
-        except Exception:
-            database.init_sqlite_db()
+def db():
+    return mysql.connector.connect(host=os.getenv('DB_HOST','127.0.0.1'), port=int(os.getenv('DB_PORT','3306')), user=os.getenv('DB_USER','root'), password=os.getenv('DB_PASSWORD',''), database=os.getenv('DB_NAME','cinesphere'))
+
+def query(sql, params=(), one=False):
+    conn=db(); cur=conn.cursor(dictionary=True)
+    try:
+        cur.execute(sql, params); result=cur.fetchone() if one else cur.fetchall(); return result
+    finally: cur.close(); conn.close()
 
 def login_required(fn):
     @wraps(fn)
     def wrapped(*args, **kwargs):
         if 'customer_id' not in session:
-            flash('Please log in to continue.')
-            return redirect(url_for('login', next=request.path))
-        return fn(*args, **kwargs)
-    return wrapped
-
-def manager_required(fn):
-    @wraps(fn)
-    def wrapped(*args, **kwargs):
-        if 'customer_id' not in session:
-            flash('Manager access required. Please log in with a manager account.')
-            return redirect(url_for('login', next=request.path))
-        if session.get('role') not in ('MANAGER', 'ADMIN'):
-            flash('Access restricted to Cinema Managers and Administrators.')
-            return redirect(url_for('index'))
+            flash('Please log in to continue.'); return redirect(url_for('login', next=request.path))
         return fn(*args, **kwargs)
     return wrapped
 
 def safe_next(value):
     return value if value and value.startswith('/') and not value.startswith('//') else url_for('index')
 
-def generate_booking_ref():
-    chars = string.ascii_uppercase + string.digits
-    suffix = ''.join(random.choices(chars, k=6))
-    return f"CS-{date.today().year}-{suffix}"
-
-def generate_ticket_code(theater_city, booking_id, seat_num):
-    city_code = theater_city[:3].upper() if theater_city else 'CIN'
-    return f"TCK-{city_code}-{booking_id:04d}-{seat_num:02d}"
-
-@app.context_processor
-def inject_global_data():
-    cities = database.query("SELECT * FROM city ORDER BY city_name")
-    selected_city = request.args.get('city') or session.get('selected_city') or 'Hyderabad'
-    session['selected_city'] = selected_city
-    return {
-        'all_cities': cities,
-        'current_city': selected_city,
-        'user_role': session.get('role', 'GUEST'),
-        'user_name': session.get('customer_name', ''),
-        'active_engine': database.ACTIVE_ENGINE
-    }
-
-# ==========================================
-# PUBLIC / CUSTOMER ROUTES
-# ==========================================
-
 @app.route('/')
 def index():
-    city_filter = request.args.get('city') or session.get('selected_city') or 'Hyderabad'
-    genre_filter = request.args.get('genre')
-    search_query = request.args.get('q', '').strip()
+    movies=query("SELECT m.*, GROUP_CONCAT(g.genre_name ORDER BY g.genre_name SEPARATOR ', ') AS genres FROM movie m LEFT JOIN movie_genre mg ON mg.movie_id=m.movie_id LEFT JOIN genre g ON g.genre_id=mg.genre_id GROUP BY m.movie_id ORDER BY m.title")
+    return render_template('index.html', movies=movies)
 
-    sql = """
-        SELECT m.*, GROUP_CONCAT(g.genre_name ORDER BY g.genre_name SEPARATOR ', ') AS genres
-        FROM movie m
-        LEFT JOIN movie_genre mg ON mg.movie_id = m.movie_id
-        LEFT JOIN genre g ON g.genre_id = mg.genre_id
-        GROUP BY m.movie_id
-        ORDER BY m.title
-    """
-    movies = database.query(sql)
+@app.route('/register', methods=['GET','POST'])
+def register():
+    if request.method=='POST':
+        name=request.form.get('name','').strip(); email=request.form.get('email','').strip().lower(); phone=request.form.get('phone','').strip(); password=request.form.get('password','')
+        if not name or not email or len(password)<6: flash('Enter your name, email, and a password of at least 6 characters.'); return render_template('register.html')
+        conn=db(); cur=conn.cursor()
+        try:
+            cur.execute('SELECT customer_id FROM customer WHERE email=%s OR phone=%s',(email,phone))
+            if cur.fetchone(): flash('That email or phone number is already registered.'); return render_template('register.html')
+            cur.execute('INSERT INTO customer (full_name,email,phone,password_hash) VALUES (%s,%s,%s,%s)',(name,email,phone,generate_password_hash(password))); conn.commit(); session['customer_id']=cur.lastrowid; session['customer_name']=name; flash('Account created successfully.'); return redirect(url_for('index'))
+        finally: cur.close(); conn.close()
+    return render_template('register.html')
 
-    # Filter by genre or search query if provided
-    if genre_filter:
-        movies = [m for m in movies if m.get('genres') and genre_filter.lower() in m['genres'].lower()]
-    if search_query:
-        movies = [m for m in movies if search_query.lower() in m['title'].lower() or (m.get('genres') and search_query.lower() in m['genres'].lower())]
+@app.route('/login', methods=['GET','POST'])
+def login():
+    if request.method=='POST':
+        email=request.form.get('email','').strip().lower(); password=request.form.get('password','')
+        user=query('SELECT customer_id,full_name,password_hash FROM customer WHERE email=%s',(email,),one=True)
+        if not user or not check_password_hash(user['password_hash'],password): flash('Invalid email or password.'); return render_template('login.html')
+        session.clear(); session['customer_id']=user['customer_id']; session['customer_name']=user['full_name']; return redirect(safe_next(request.form.get('next')))
+    return render_template('login.html', next=request.args.get('next',''))
 
-    genres = database.query("SELECT * FROM genre ORDER BY genre_name")
-    theaters = database.query(
-        "SELECT t.*, c.city_name FROM theater t JOIN city c ON c.city_id = t.city_id WHERE c.city_name = %s ORDER BY t.theater_name",
-        (city_filter,)
-    )
-
-    return render_template('index.html', movies=movies, genres=genres, theaters=theaters, selected_genre=genre_filter, search_query=search_query)
-
-@app.route('/theaters')
-def theaters_list():
-    city_filter = request.args.get('city') or session.get('selected_city') or 'Hyderabad'
-    theaters = database.query(
-        """
-        SELECT t.*, c.city_name, COUNT(DISTINCT sc.screen_id) AS screen_count
-        FROM theater t
-        JOIN city c ON c.city_id = t.city_id
-        LEFT JOIN screen sc ON sc.theater_id = t.theater_id
-        WHERE c.city_name = %s
-        GROUP BY t.theater_id
-        ORDER BY t.theater_name
-        """,
-        (city_filter,)
-    )
-
-    # Attach active screenings for each theater
-    for t in theaters:
-        t['screens'] = database.query("SELECT * FROM screen WHERE theater_id = %s ORDER BY screen_name", (t['theater_id'],))
-        t['today_screenings'] = database.query(
-            """
-            SELECT s.screening_id, s.screening_date, s.base_price, m.title, m.movie_id, m.duration_minutes,
-                   sl.slot_name, sl.start_time, sc.screen_name, sc.screen_type
-            FROM screening s
-            JOIN movie m ON m.movie_id = s.movie_id
-            JOIN screen sc ON sc.screen_id = s.screen_id
-            JOIN slot sl ON sl.slot_id = s.slot_id
-            WHERE sc.theater_id = %s AND s.screening_date >= CURDATE() AND s.status = 'SCHEDULED'
-            ORDER BY s.screening_date, sl.start_time
-            LIMIT 8
-            """,
-            (t['theater_id'],)
-        )
-
-    return render_template('theaters.html', theaters=theaters, city=city_filter)
+@app.route('/logout')
+def logout(): session.clear(); flash('You have been logged out.'); return redirect(url_for('index'))
 
 @app.route('/movie/<int:movie_id>')
 def movie_details(movie_id):
-    movie = database.query('SELECT * FROM movie WHERE movie_id = %s', (movie_id,), one=True)
-    if not movie:
-        abort(404)
-    movie['genres'] = database.query(
-        'SELECT g.genre_name FROM genre g JOIN movie_genre mg ON mg.genre_id = g.genre_id WHERE mg.movie_id = %s',
-        (movie_id,)
-    )
-    # Available formats & cities
-    cities_showing = database.query(
-        """
-        SELECT DISTINCT c.city_name
-        FROM screening s
-        JOIN screen sc ON sc.screen_id = s.screen_id
-        JOIN theater t ON t.theater_id = sc.theater_id
-        JOIN city c ON c.city_id = t.city_id
-        WHERE s.movie_id = %s AND s.screening_date >= CURDATE() AND s.status = 'SCHEDULED'
-        """,
-        (movie_id,)
-    )
-    return render_template('movie_details.html', movie=movie, cities_showing=cities_showing)
+    movie=query('SELECT * FROM movie WHERE movie_id=%s',(movie_id,),one=True)
+    if not movie: abort(404)
+    movie['genres']=query('SELECT g.genre_name FROM genre g JOIN movie_genre mg ON mg.genre_id=g.genre_id WHERE mg.movie_id=%s',(movie_id,))
+    return render_template('movie_details.html',movie=movie)
 
 @app.route('/movie/<int:movie_id>/showtimes')
 def showtimes(movie_id):
-    movie = database.query('SELECT * FROM movie WHERE movie_id = %s', (movie_id,), one=True)
-    if not movie:
-        abort(404)
-
-    city_filter = request.args.get('city') or session.get('selected_city') or 'Hyderabad'
-    date_filter = request.args.get('date') or date.today().isoformat()
-
-    # Generate 4 selectable dates (Today, Tomorrow, Day+2, Day+3)
-    date_options = []
-    base_d = date.today()
-    for i in range(4):
-        d = base_d + timedelta(days=i)
-        iso = d.isoformat()
-        date_options.append({
-            'date_str': iso,
-            'day_name': 'Today' if i == 0 else ('Tomorrow' if i == 1 else d.strftime('%a')),
-            'display_date': d.strftime('%d %b'),
-            'is_selected': (iso == date_filter)
-        })
-
-    # Fetch showtimes grouped by Theater
-    sql = """
-        SELECT s.screening_id, s.screening_date, s.base_price, s.status,
-               sl.slot_id, sl.slot_name, sl.start_time,
-               t.theater_id, t.theater_name, t.address, t.location_area, c.city_name,
-               sc.screen_id, sc.screen_name, sc.screen_type
-        FROM screening s
-        JOIN slot sl ON sl.slot_id = s.slot_id
-        JOIN screen sc ON sc.screen_id = s.screen_id
-        JOIN theater t ON t.theater_id = sc.theater_id
-        JOIN city c ON c.city_id = t.city_id
-        WHERE s.movie_id = %s AND s.screening_date = %s AND c.city_name = %s AND s.status = 'SCHEDULED'
-        ORDER BY t.theater_name, sc.screen_name, sl.start_time
-    """
-    raw_shows = database.query(sql, (movie_id, date_filter, city_filter))
-
-    # Group by Theater
-    theater_map = {}
-    for show in raw_shows:
-        tid = show['theater_id']
-        if tid not in theater_map:
-            theater_map[tid] = {
-                'theater_name': show['theater_name'],
-                'address': show['address'],
-                'location_area': show['location_area'],
-                'city_name': show['city_name'],
-                'shows': []
-            }
-        theater_map[tid]['shows'].append(show)
-
-    theaters_list = list(theater_map.values())
-
-    return render_template(
-        'showtimes.html',
-        movie=movie,
-        theaters_list=theaters_list,
-        date_options=date_options,
-        current_date=date_filter,
-        current_city=city_filter
-    )
+    movie=query('SELECT * FROM movie WHERE movie_id=%s',(movie_id,),one=True)
+    if not movie: abort(404)
+    shows=query("SELECT s.screening_id,s.screening_date,s.base_price,s.status,sl.slot_name,sl.start_time,t.theater_name,t.city,sc.screen_name,sc.screen_type FROM screening s JOIN slot sl ON sl.slot_id=s.slot_id JOIN screen sc ON sc.screen_id=s.screen_id JOIN theater t ON t.theater_id=sc.theater_id WHERE s.movie_id=%s AND s.screening_date>=CURDATE() AND s.status='SCHEDULED' ORDER BY s.screening_date,sl.start_time",(movie_id,))
+    return render_template('showtimes.html',movie=movie,showtimes=shows)
 
 @app.route('/show/<int:screening_id>/seats')
 @login_required
 def seats(screening_id):
-    screening = database.query(
-        """
-        SELECT s.*, m.title, m.dimension, t.theater_name, t.address, t.location_area, c.city_name,
-               sc.screen_name, sc.screen_type, sl.slot_name, sl.start_time
-        FROM screening s
-        JOIN movie m ON m.movie_id = s.movie_id
-        JOIN screen sc ON sc.screen_id = s.screen_id
-        JOIN theater t ON t.theater_id = sc.theater_id
-        JOIN city c ON c.city_id = t.city_id
-        JOIN slot sl ON sl.slot_id = s.slot_id
-        WHERE s.screening_id = %s AND s.status = 'SCHEDULED'
-        """,
-        (screening_id,),
-        one=True
-    )
-    if not screening:
-        abort(404)
+    screening=query("SELECT s.*,m.title,t.theater_name,sc.screen_name,sc.screen_type,sl.slot_name FROM screening s JOIN movie m ON m.movie_id=s.movie_id JOIN screen sc ON sc.screen_id=s.screen_id JOIN theater t ON t.theater_id=sc.theater_id JOIN slot sl ON sl.slot_id=s.slot_id WHERE s.screening_id=%s AND s.status='SCHEDULED'",(screening_id,),one=True)
+    if not screening: abort(404)
+    screening['show_date']=screening['screening_date']
+    seats=query('SELECT * FROM seat WHERE screen_id=%s ORDER BY row_label,seat_number',(screening['screen_id'],))
+    booked=query("SELECT bs.seat_id FROM booking_seat bs JOIN booking b ON b.booking_id=bs.booking_id WHERE b.screening_id=%s AND b.booking_status='CONFIRMED' AND bs.seat_status='BOOKED'",(screening_id,))
+    return render_template('seats.html',screening=screening,seats=seats,booked_seat_ids=[x['seat_id'] for x in booked])
 
-    # Fetch all seats for this screen with category multiplier & pricing
-    seats = database.query(
-        """
-        SELECT s.*, c.category_name, c.price_multiplier,
-               ROUND(%s * c.price_multiplier, 2) AS seat_price
-        FROM seat s
-        JOIN seat_category c ON c.category_id = s.category_id
-        WHERE s.screen_id = %s AND s.is_active = 1
-        ORDER BY s.row_label, s.seat_number
-        """,
-        (screening['base_price'], screening['screen_id'])
-    )
-
-    # Booked seat IDs for this screening
-    booked = database.query(
-        """
-        SELECT bs.seat_id
-        FROM booking_seat bs
-        JOIN booking b ON b.booking_id = bs.booking_id
-        WHERE b.screening_id = %s AND b.booking_status = 'CONFIRMED' AND bs.seat_status = 'BOOKED'
-        """,
-        (screening_id,)
-    )
-    booked_seat_ids = [x['seat_id'] for x in booked]
-
-    # Categories present for legend
-    categories = database.query(
-        """
-        SELECT DISTINCT c.category_name, c.price_multiplier,
-               ROUND(%s * c.price_multiplier, 2) AS sample_price
-        FROM seat s
-        JOIN seat_category c ON c.category_id = s.category_id
-        WHERE s.screen_id = %s
-        ORDER BY c.price_multiplier DESC
-        """,
-        (screening['base_price'], screening['screen_id'])
-    )
-
-    return render_template(
-        'seats.html',
-        screening=screening,
-        seats=seats,
-        booked_seat_ids=booked_seat_ids,
-        categories=categories
-    )
-
-@app.route('/show/<int:screening_id>/booking', methods=['GET', 'POST'])
+@app.route('/show/<int:screening_id>/booking',methods=['GET','POST'])
 @login_required
 def booking_review(screening_id):
-    ids = request.form.getlist('seat_ids') if request.method == 'POST' else request.args.getlist('seat_ids')
-    try:
-        ids = list(dict.fromkeys(int(x) for x in ids))
-    except ValueError:
-        ids = []
+    ids=request.form.getlist('seat_ids') if request.method=='POST' else request.args.getlist('seat_ids')
+    try: ids=list(dict.fromkeys(int(x) for x in ids))
+    except ValueError: ids=[]
+    if not ids: flash('Choose at least one seat.'); return redirect(url_for('seats',screening_id=screening_id))
+    screening=query("SELECT s.*,m.title,t.theater_name,sc.screen_name,sc.screen_type,sl.slot_name FROM screening s JOIN movie m ON m.movie_id=s.movie_id JOIN screen sc ON sc.screen_id=s.screen_id JOIN theater t ON t.theater_id=sc.theater_id JOIN slot sl ON sl.slot_id=s.slot_id WHERE s.screening_id=%s AND s.status='SCHEDULED'",(screening_id,),one=True)
+    if not screening: abort(404)
+    marks=','.join(['%s']*len(ids)); selected=query(f'SELECT * FROM seat WHERE screen_id=%s AND seat_id IN ({marks})',(screening['screen_id'],*ids))
+    if len(selected)!=len(ids): flash('One or more selected seats are invalid.'); return redirect(url_for('seats',screening_id=screening_id))
+    occupied=query(f"SELECT bs.seat_id FROM booking_seat bs JOIN booking b ON b.booking_id=bs.booking_id WHERE b.screening_id=%s AND b.booking_status='CONFIRMED' AND bs.seat_status='BOOKED' AND bs.seat_id IN ({marks})",(screening_id,*ids))
+    if occupied: flash('A selected seat is no longer available. Please choose again.'); return redirect(url_for('seats',screening_id=screening_id))
+    return render_template('booking.html',screening=screening,seats=selected,selected_seat_ids=ids,total_amount=float(screening['base_price'])*len(ids))
 
-    if not ids:
-        flash('Please choose at least one seat to proceed.')
-        return redirect(url_for('seats', screening_id=screening_id))
-
-    screening = database.query(
-        """
-        SELECT s.*, m.title, t.theater_name, t.address, c.city_name,
-               sc.screen_name, sc.screen_type, sl.slot_name, sl.start_time
-        FROM screening s
-        JOIN movie m ON m.movie_id = s.movie_id
-        JOIN screen sc ON sc.screen_id = s.screen_id
-        JOIN theater t ON t.theater_id = sc.theater_id
-        JOIN city c ON c.city_id = t.city_id
-        JOIN slot sl ON sl.slot_id = s.slot_id
-        WHERE s.screening_id = %s AND s.status = 'SCHEDULED'
-        """,
-        (screening_id,),
-        one=True
-    )
-    if not screening:
-        abort(404)
-
-    marks = ','.join(['%s'] * len(ids))
-    selected_seats = database.query(
-        f"""
-        SELECT s.*, c.category_name, c.price_multiplier,
-               ROUND(%s * c.price_multiplier, 2) AS seat_price
-        FROM seat s
-        JOIN seat_category c ON c.category_id = s.category_id
-        WHERE s.screen_id = %s AND s.seat_id IN ({marks})
-        ORDER BY s.row_label, s.seat_number
-        """,
-        (screening['base_price'], screening['screen_id'], *ids)
-    )
-
-    if len(selected_seats) != len(ids):
-        flash('One or more selected seats are invalid.')
-        return redirect(url_for('seats', screening_id=screening_id))
-
-    # Verify none are booked
-    occupied = database.query(
-        f"""
-        SELECT bs.seat_id
-        FROM booking_seat bs
-        JOIN booking b ON b.booking_id = bs.booking_id
-        WHERE b.screening_id = %s AND b.booking_status = 'CONFIRMED' AND bs.seat_status = 'BOOKED' AND bs.seat_id IN ({marks})
-        """,
-        (screening_id, *ids)
-    )
-    if occupied:
-        flash('One or more selected seats were just booked by another user. Please re-select.')
-        return redirect(url_for('seats', screening_id=screening_id))
-
-    # Calculate total seat amount
-    seats_subtotal = sum(float(s['seat_price']) for s in selected_seats)
-
-    # Concession snacks
-    concessions = database.query("SELECT * FROM concession_item ORDER BY category, price")
-
-    return render_template(
-        'booking.html',
-        screening=screening,
-        seats=selected_seats,
-        selected_seat_ids=ids,
-        seats_subtotal=seats_subtotal,
-        concessions=concessions
-    )
-
-@app.route('/create-booking', methods=['POST'])
+@app.route('/create-booking',methods=['POST'])
 @login_required
 def create_booking():
+    try: screening_id=int(request.form.get('screening_id','')); ids=list(dict.fromkeys(int(x) for x in request.form.getlist('seat_ids')))
+    except ValueError: abort(400)
+    method=request.form.get('payment_method','UPI')
+    if not ids or method not in ('UPI','CARD','CASH'): flash('Invalid booking details.'); return redirect(url_for('index'))
+    conn=db(); cur=conn.cursor(dictionary=True)
     try:
-        screening_id = int(request.form.get('screening_id', ''))
-        ids = list(dict.fromkeys(int(x) for x in request.form.getlist('seat_ids')))
-    except ValueError:
-        abort(400)
-
-    method = request.form.get('payment_method', 'UPI')
-    if not ids or method not in ('UPI', 'CARD', 'NET_BANKING', 'CASH'):
-        flash('Invalid booking parameters.')
-        return redirect(url_for('index'))
-
-    # Parse concessions if any
-    concession_items = []
-    concession_total = 0.0
-    all_concessions = database.query("SELECT * FROM concession_item")
-    concession_map = {c['item_id']: c for c in all_concessions}
-
-    for item_id, item_info in concession_map.items():
-        qty_str = request.form.get(f'qty_{item_id}', '0')
-        try:
-            qty = int(qty_str)
-            if qty > 0:
-                sub = float(item_info['price']) * qty
-                concession_total += sub
-                concession_items.append((item_id, qty, sub))
-        except ValueError:
-            pass
-
-    conn = database.get_db()
-    cur = conn.cursor()
-    try:
-        if database.ACTIVE_ENGINE == 'sqlite':
-            cur.execute("BEGIN TRANSACTION")
-        else:
-            conn.start_transaction()
-
-        # Lock/fetch screening info
-        cur.execute(database.adapt_sql(
-            """
-            SELECT s.*, sc.screen_id, t.city_id, c.city_name
-            FROM screening s
-            JOIN screen sc ON sc.screen_id = s.screen_id
-            JOIN theater t ON t.theater_id = sc.theater_id
-            JOIN city c ON c.city_id = t.city_id
-            WHERE s.screening_id = %s AND s.status = 'SCHEDULED'
-            """
-        ), (screening_id,))
-        show = cur.fetchone()
-        if not show:
-            conn.rollback()
-            flash('The selected screening is unavailable.')
-            return redirect(url_for('index'))
-
-        # Row mapping depending on engine
-        show_dict = dict(show) if database.ACTIVE_ENGINE == 'sqlite' else show
-        screen_id = show_dict['screen_id']
-        base_price = float(show_dict['base_price'])
-        city_name = show_dict['city_name']
-
-        # Fetch seats with price multipliers
-        marks = ','.join(['%s'] * len(ids))
-        cur.execute(database.adapt_sql(
-            f"""
-            SELECT s.seat_id, s.row_label, s.seat_number, sc.price_multiplier
-            FROM seat s
-            JOIN seat_category sc ON sc.category_id = s.category_id
-            WHERE s.screen_id = %s AND s.seat_id IN ({marks})
-            """
-        ), (screen_id, *ids))
-        valid_seats = cur.fetchall()
-        if len(valid_seats) != len(ids):
-            conn.rollback()
-            flash('Seat verification failed.')
-            return redirect(url_for('seats', screening_id=screening_id))
-
-        # Check occupancy
-        cur.execute(database.adapt_sql(
-            f"""
-            SELECT bs.seat_id
-            FROM booking_seat bs
-            JOIN booking b ON b.booking_id = bs.booking_id
-            WHERE b.screening_id = %s AND b.booking_status = 'CONFIRMED' AND bs.seat_status = 'BOOKED' AND bs.seat_id IN ({marks})
-            """
-        ), (screening_id, *ids))
-        if cur.fetchall():
-            conn.rollback()
-            flash('One of your selected seats was just reserved by someone else.')
-            return redirect(url_for('seats', screening_id=screening_id))
-
-        # Calculate total
-        total_seat_price = 0.0
-        seat_prices = {}
-        for s in valid_seats:
-            s_dict = dict(s) if database.ACTIVE_ENGINE == 'sqlite' else s
-            sid = s_dict['seat_id']
-            mult = float(s_dict['price_multiplier'])
-            price = round(base_price * mult, 2)
-            seat_prices[sid] = price
-            total_seat_price += price
-
-        grand_total = total_seat_price + concession_total
-        booking_ref = generate_booking_ref()
-
-        # Insert booking
-        cur.execute(database.adapt_sql(
-            """
-            INSERT INTO booking (booking_reference, customer_id, screening_id, booking_date, total_amount, booking_status)
-            VALUES (%s, %s, %s, NOW(), %s, 'CONFIRMED')
-            """
-        ), (booking_ref, session['customer_id'], screening_id, grand_total))
-        booking_id = cur.lastrowid
-
-        # Insert seats & individual tickets
-        idx = 1
+        conn.start_transaction()
+        cur.execute("SELECT s.*,sc.screen_id FROM screening s JOIN screen sc ON sc.screen_id=s.screen_id WHERE s.screening_id=%s AND s.status='SCHEDULED' FOR UPDATE",(screening_id,)); show=cur.fetchone()
+        if not show: conn.rollback(); flash('Showtime is unavailable.'); return redirect(url_for('index'))
+        marks=','.join(['%s']*len(ids)); cur.execute(f'SELECT seat_id FROM seat WHERE screen_id=%s AND seat_id IN ({marks})',(show['screen_id'],*ids)); valid=cur.fetchall()
+        if len(valid)!=len(ids): conn.rollback(); flash('Invalid seat selection.'); return redirect(url_for('seats',screening_id=screening_id))
+        cur.execute(f"SELECT bs.seat_id FROM booking_seat bs JOIN booking b ON b.booking_id=bs.booking_id WHERE b.screening_id=%s AND b.booking_status='CONFIRMED' AND bs.seat_status='BOOKED' AND bs.seat_id IN ({marks}) FOR UPDATE",(screening_id,*ids))
+        if cur.fetchall(): conn.rollback(); flash('A seat has just been booked by someone else.'); return redirect(url_for('seats',screening_id=screening_id))
+        total=float(show['base_price'])*len(ids)
+        cur.execute("INSERT INTO booking (customer_id,screening_id,booking_date,total_amount,booking_status) VALUES (%s,%s,NOW(),%s,'CONFIRMED')",(session['customer_id'],screening_id,total)); bid=cur.lastrowid
         for sid in ids:
-            price = seat_prices[sid]
-            cur.execute(database.adapt_sql(
+            cur.execute(
                 """
-                INSERT INTO booking_seat (booking_id, seat_id, ticket_price, seat_status)
+                INSERT INTO booking_seat
+                    (booking_id, seat_id, ticket_price, seat_status)
                 VALUES (%s, %s, %s, 'BOOKED')
+                """,
+                (bid, sid, show['base_price'])
+            )
+            booking_seat_id = cur.lastrowid
+            cur.execute(
                 """
-            ), (booking_id, sid, price))
-            bs_id = cur.lastrowid
-
-            t_code = generate_ticket_code(city_name, booking_id, idx)
-            idx += 1
-            cur.execute(database.adapt_sql(
-                """
-                INSERT INTO ticket (booking_seat_id, ticket_code, issued_at, ticket_status)
-                VALUES (%s, %s, NOW(), 'ACTIVE')
-                """
-            ), (bs_id, t_code))
-
-        # Insert concessions
-        for item_id, qty, sub in concession_items:
-            cur.execute(database.adapt_sql(
-                """
-                INSERT INTO booking_concession (booking_id, item_id, quantity, subtotal)
-                VALUES (%s, %s, %s, %s)
-                """
-            ), (booking_id, item_id, qty, sub))
-
-        # Insert payment record
-        txn_ref = f"TXN-{method}-{booking_id}-{os.urandom(4).hex().upper()}"
-        cur.execute(database.adapt_sql(
-            """
-            INSERT INTO payment (booking_id, payment_time, amount, payment_method, payment_status, transaction_reference)
-            VALUES (%s, NOW(), %s, %s, 'SUCCESS', %s)
-            """
-        ), (booking_id, grand_total, method, txn_ref))
-
-        conn.commit()
-        return redirect(url_for('confirmation', booking_id=booking_id))
+                INSERT INTO ticket (booking_seat_id, ticket_status)
+                VALUES (%s, 'ACTIVE')
+                """,
+                (booking_seat_id,)
+            )
+        cur.execute("""
+        INSERT INTO payment
+        (booking_id, amount, payment_method, payment_status, transaction_reference)
+        VALUES (%s, %s, %s, 'SUCCESS', %s)
+        """,
+    (bid, total, method, f'DEMO-{bid}-{os.urandom(4).hex()}'))
+        conn.commit(); return redirect(url_for('confirmation',booking_id=bid))
     except Exception:
-        conn.rollback()
-        raise
-    finally:
-        cur.close()
-        conn.close()
+        conn.rollback(); raise
+    finally: cur.close(); conn.close()
 
 @app.route('/booking/<int:booking_id>/confirmation')
 @login_required
 def confirmation(booking_id):
-    sql = """
-        SELECT b.*, m.title, m.dimension, m.language,
-               t.theater_name, t.address, t.location_area, c.city_name,
-               sc.screen_name, sc.screen_type,
-               s.screening_date, sl.slot_name, sl.start_time,
-               cust.full_name, cust.email, cust.phone
-        FROM booking b
-        JOIN screening s ON s.screening_id = b.screening_id
-        JOIN movie m ON m.movie_id = s.movie_id
-        JOIN screen sc ON sc.screen_id = s.screen_id
-        JOIN theater t ON t.theater_id = sc.theater_id
-        JOIN city c ON c.city_id = t.city_id
-        JOIN slot sl ON sl.slot_id = s.slot_id
-        JOIN customer cust ON cust.customer_id = b.customer_id
-        WHERE b.booking_id = %s
-    """
-    params = (booking_id,)
-    # If not manager, must match customer_id
-    if session.get('role') not in ('MANAGER', 'ADMIN'):
-        sql += " AND b.customer_id = %s"
-        params = (booking_id, session['customer_id'])
-
-    b = database.query(sql, params, one=True)
-    if not b:
-        abort(404)
-
-    # Seats with tickets
-    seats = database.query(
-        """
-        SELECT se.row_label, se.seat_number, cat.category_name, bs.ticket_price, t.ticket_code
-        FROM booking_seat bs
-        JOIN seat se ON se.seat_id = bs.seat_id
-        JOIN seat_category cat ON cat.category_id = se.category_id
-        LEFT JOIN ticket t ON t.booking_seat_id = bs.booking_seat_id
-        WHERE bs.booking_id = %s
-        ORDER BY se.row_label, se.seat_number
-        """,
-        (booking_id,)
-    )
-    b['seats'] = seats
-
-    # Concessions
-    b['concessions'] = database.query(
-        """
-        SELECT bc.quantity, bc.subtotal, ci.item_name, ci.category
-        FROM booking_concession bc
-        JOIN concession_item ci ON ci.item_id = bc.item_id
-        WHERE bc.booking_id = %s
-        """,
-        (booking_id,)
-    )
-
-    # Payment
-    b['payment'] = database.query(
-        "SELECT * FROM payment WHERE booking_id = %s ORDER BY payment_id DESC LIMIT 1",
-        (booking_id,),
-        one=True
-    )
-
-    return render_template('confirmation.html', booking=b)
+    b=query("SELECT b.*,m.title,t.theater_name,t.city,sc.screen_name,sc.screen_type,s.screening_date,sl.slot_name,sl.start_time,c.full_name FROM booking b JOIN screening s ON s.screening_id=b.screening_id JOIN movie m ON m.movie_id=s.movie_id JOIN screen sc ON sc.screen_id=s.screen_id JOIN theater t ON t.theater_id=sc.theater_id JOIN slot sl ON sl.slot_id=s.slot_id JOIN customer c ON c.customer_id=b.customer_id WHERE b.booking_id=%s AND b.customer_id=%s",(booking_id,session['customer_id']),one=True)
+    if not b: abort(404)
+    b['seats']=query("SELECT se.row_label,se.seat_number FROM booking_seat bs JOIN seat se ON se.seat_id=bs.seat_id WHERE bs.booking_id=%s AND bs.seat_status='BOOKED' ORDER BY se.row_label,se.seat_number",(booking_id,))
+    b['payment']=query('SELECT payment_method,payment_status FROM payment WHERE booking_id=%s ORDER BY payment_id DESC LIMIT 1',(booking_id,),one=True)
+    return render_template('confirmation.html',booking=b)
 
 @app.route('/my-bookings')
 @login_required
 def my_bookings():
-    bookings = database.query(
-        """
-        SELECT b.*, m.title, m.dimension,
-               t.theater_name, t.location_area, c.city_name,
-               sc.screen_name, sc.screen_type,
-               s.screening_date, sl.slot_name, sl.start_time
-        FROM booking b
-        JOIN screening s ON s.screening_id = b.screening_id
-        JOIN movie m ON m.movie_id = s.movie_id
-        JOIN screen sc ON sc.screen_id = s.screen_id
-        JOIN theater t ON t.theater_id = sc.theater_id
-        JOIN city c ON c.city_id = t.city_id
-        JOIN slot sl ON sl.slot_id = s.slot_id
-        WHERE b.customer_id = %s
-        ORDER BY b.booking_date DESC
-        """,
-        (session['customer_id'],)
-    )
-    for b in bookings:
-        b['seats'] = database.query(
-            """
-            SELECT se.row_label, se.seat_number, cat.category_name
-            FROM booking_seat bs
-            JOIN seat se ON se.seat_id = bs.seat_id
-            JOIN seat_category cat ON cat.category_id = se.category_id
-            WHERE bs.booking_id = %s AND bs.seat_status = 'BOOKED'
-            ORDER BY se.row_label, se.seat_number
-            """,
-            (b['booking_id'],)
-        )
-    return render_template('my_bookings.html', bookings=bookings)
+    bookings=query("SELECT b.*,m.title,t.theater_name,t.city,sc.screen_name,sc.screen_type,s.screening_date,sl.slot_name,sl.start_time FROM booking b JOIN screening s ON s.screening_id=b.screening_id JOIN movie m ON m.movie_id=s.movie_id JOIN screen sc ON sc.screen_id=s.screen_id JOIN theater t ON t.theater_id=sc.theater_id JOIN slot sl ON sl.slot_id=s.slot_id WHERE b.customer_id=%s ORDER BY b.booking_date DESC",(session['customer_id'],))
+    for b in bookings: b['seats']=query("SELECT se.row_label,se.seat_number FROM booking_seat bs JOIN seat se ON se.seat_id=bs.seat_id WHERE bs.booking_id=%s AND bs.seat_status='BOOKED' ORDER BY se.row_label,se.seat_number",(b['booking_id'],))
+    return render_template('my_bookings.html',bookings=bookings)
 
 @app.route('/cancel-booking/<int:booking_id>', methods=['POST'])
 @login_required
 def cancel_booking(booking_id):
-    conn = database.get_db()
+    conn = db()
     cur = conn.cursor()
     try:
-        if database.ACTIVE_ENGINE == 'sqlite':
-            cur.execute("BEGIN TRANSACTION")
-        else:
-            conn.start_transaction()
-
-        # Check booking exists and ownership
-        if session.get('role') in ('MANAGER', 'ADMIN'):
-            cur.execute(database.adapt_sql("SELECT booking_status FROM booking WHERE booking_id = %s"), (booking_id,))
-        else:
-            cur.execute(database.adapt_sql(
-                "SELECT booking_status FROM booking WHERE booking_id = %s AND customer_id = %s"
-            ), (booking_id, session['customer_id']))
-
+        conn.start_transaction()
+        cur.execute(
+            """
+            SELECT booking_status
+            FROM booking
+            WHERE booking_id = %s AND customer_id = %s
+            FOR UPDATE
+            """,
+            (booking_id, session['customer_id'])
+        )
         b = cur.fetchone()
-        status = b['booking_status'] if isinstance(b, dict) else (b[0] if b else None)
-        if not b or status != 'CONFIRMED':
+        if not b or b[0] != 'CONFIRMED':
             conn.rollback()
             flash('This booking cannot be cancelled.')
             return redirect(url_for('my_bookings'))
-
-        cur.execute(database.adapt_sql("UPDATE booking SET booking_status = 'CANCELLED' WHERE booking_id = %s"), (booking_id,))
-        cur.execute(database.adapt_sql("UPDATE booking_seat SET seat_status = 'CANCELLED' WHERE booking_id = %s"), (booking_id,))
-        cur.execute(database.adapt_sql(
+        # Cancel the booking.
+        cur.execute(
             """
-            UPDATE ticket
-            SET ticket_status = 'CANCELLED'
-            WHERE booking_seat_id IN (SELECT booking_seat_id FROM booking_seat WHERE booking_id = %s)
+            UPDATE booking
+            SET booking_status = 'CANCELLED'
+            WHERE booking_id = %s
+            """,
+            (booking_id,)
+        )
+        # Release the booked seats.
+        cur.execute(
             """
-        ), (booking_id,))
-        cur.execute(database.adapt_sql(
-            "UPDATE payment SET payment_status = 'REFUNDED' WHERE booking_id = %s AND payment_status = 'SUCCESS'"
-        ), (booking_id,))
-
+            UPDATE booking_seat
+            SET seat_status = 'CANCELLED'
+            WHERE booking_id = %s
+            """,
+            (booking_id,)
+        )
+        # Cancel tickets through their booking-seat relationship.
+        cur.execute(
+            """
+            UPDATE ticket t
+            JOIN booking_seat bs
+                ON t.booking_seat_id = bs.booking_seat_id
+            SET t.ticket_status = 'CANCELLED'
+            WHERE bs.booking_id = %s
+            """,
+            (booking_id,)
+        )
+        # Mark the successful demo payment as refunded.
+        cur.execute(
+            """
+            UPDATE payment
+            SET payment_status = 'REFUNDED'
+            WHERE booking_id = %s
+              AND payment_status = 'SUCCESS'
+            """,
+            (booking_id,)
+        )
         conn.commit()
-        flash('Booking cancelled successfully. Payment marked refunded.')
+        flash('Booking cancelled. Demo payment marked refunded.')
     except Exception:
         conn.rollback()
         raise
     finally:
         cur.close()
         conn.close()
-
-    if session.get('role') in ('MANAGER', 'ADMIN') and request.referrer and '/admin' in request.referrer:
-        return redirect(url_for('admin_portal'))
     return redirect(url_for('my_bookings'))
 
-# ==========================================
-# AUTHENTICATION & ROLE SWITCHER
-# ==========================================
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        name = request.form.get('name', '').strip()
-        email = request.form.get('email', '').strip().lower()
-        phone = request.form.get('phone', '').strip()
-        password = request.form.get('password', '')
-
-        if not name or not email or len(password) < 6:
-            flash('Enter your name, email, and a password of at least 6 characters.')
-            return render_template('register.html')
-
-        conn = database.get_db()
-        cur = conn.cursor()
-        try:
-            cur.execute(database.adapt_sql('SELECT customer_id FROM customer WHERE email = %s OR phone = %s'), (email, phone))
-            if cur.fetchone():
-                flash('That email or phone number is already registered.')
-                return render_template('register.html')
-
-            pw_hash = generate_password_hash(password)
-            cur.execute(database.adapt_sql(
-                'INSERT INTO customer (full_name, email, phone, password_hash, role) VALUES (%s, %s, %s, %s, "CUSTOMER")'
-            ), (name, email, phone, pw_hash))
-            conn.commit()
-
-            session['customer_id'] = cur.lastrowid
-            session['customer_name'] = name
-            session['role'] = 'CUSTOMER'
-            flash('Account created successfully!')
-            return redirect(url_for('index'))
-        finally:
-            cur.close()
-            conn.close()
-    return render_template('register.html')
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
-        password = request.form.get('password', '')
-        user = database.query('SELECT * FROM customer WHERE email = %s', (email,), one=True)
-        if not user or not check_password_hash(user['password_hash'], password):
-            flash('Invalid email or password.')
-            return render_template('login.html')
-
-        session.clear()
-        session['customer_id'] = user['customer_id']
-        session['customer_name'] = user['full_name']
-        session['role'] = user.get('role', 'CUSTOMER')
-
-        if session['role'] in ('MANAGER', 'ADMIN'):
-            flash(f"Welcome to Manager Portal, {user['full_name']}!")
-            return redirect(safe_next(request.form.get('next')) or url_for('admin_portal'))
-
-        flash(f"Welcome back, {user['full_name']}!")
-        return redirect(safe_next(request.form.get('next')))
-
-    return render_template('login.html', next=request.args.get('next', ''))
-
-@app.route('/logout')
-def logout():
-    session.clear()
-    flash('You have been logged out.')
-    return redirect(url_for('index'))
-
-@app.route('/switch-role')
-def switch_role():
-    """Demo Helper: Fast 1-click toggle between Manager Vikram and Customer Arjun for evaluation"""
-    target = request.args.get('to', 'manager')
-    session.clear()
-    if target == 'manager':
-        mgr = database.query("SELECT * FROM customer WHERE role = 'MANAGER' LIMIT 1", one=True)
-        if mgr:
-            session['customer_id'] = mgr['customer_id']
-            session['customer_name'] = mgr['full_name']
-            session['role'] = 'MANAGER'
-            flash('Switched session to Manager: ' + mgr['full_name'])
-            return redirect(url_for('admin_portal'))
-    else:
-        cust = database.query("SELECT * FROM customer WHERE role = 'CUSTOMER' LIMIT 1", one=True)
-        if cust:
-            session['customer_id'] = cust['customer_id']
-            session['customer_name'] = cust['full_name']
-            session['role'] = 'CUSTOMER'
-            flash('Switched session to Customer: ' + cust['full_name'])
-            return redirect(url_for('index'))
-
-    return redirect(url_for('index'))
-
-# ==========================================
-# MANAGER / ADMIN PORTAL ("WHO BOOKED WHEN")
-# ==========================================
-
-@app.route('/admin')
-@app.route('/manager')
-@manager_required
-def admin_portal():
-    theater_filter = request.args.get('theater')
-    movie_filter = request.args.get('movie')
-    status_filter = request.args.get('status')
-    date_filter = request.args.get('date')
-    search = request.args.get('q', '').strip()
-
-    # KPI Metrics
-    stats = {}
-    stats['total_bookings'] = database.query("SELECT COUNT(*) AS c FROM booking", one=True)['c']
-    stats['confirmed_bookings'] = database.query("SELECT COUNT(*) AS c FROM booking WHERE booking_status = 'CONFIRMED'", one=True)['c']
-    rev = database.query("SELECT SUM(total_amount) AS s FROM booking WHERE booking_status = 'CONFIRMED'", one=True)['s']
-    stats['total_revenue'] = rev if rev is not None else 0.0
-    stats['tickets_sold'] = database.query("SELECT COUNT(*) AS c FROM ticket WHERE ticket_status = 'ACTIVE'", one=True)['c']
-    stats['active_theaters'] = database.query("SELECT COUNT(*) AS c FROM theater", one=True)['c']
-    stats['active_screenings'] = database.query("SELECT COUNT(*) AS c FROM screening WHERE status = 'SCHEDULED' AND screening_date >= CURDATE()", one=True)['c']
-
-    # Comprehensive Bookings Audit Query ("Who booked when, details n all that stuff")
-    conditions = ["1=1"]
-    params = []
-
-    if theater_filter:
-        conditions.append("t.theater_id = %s")
-        params.append(theater_filter)
-    if movie_filter:
-        conditions.append("m.movie_id = %s")
-        params.append(movie_filter)
-    if status_filter:
-        conditions.append("b.booking_status = %s")
-        params.append(status_filter)
-    if date_filter:
-        conditions.append("s.screening_date = %s")
-        params.append(date_filter)
-    if search:
-        conditions.append("(cust.full_name LIKE %s OR cust.email LIKE %s OR cust.phone LIKE %s OR b.booking_reference LIKE %s)")
-        like_term = f"%{search}%"
-        params.extend([like_term, like_term, like_term, like_term])
-
-    where_clause = " AND ".join(conditions)
-
-    bookings_sql = f"""
-        SELECT b.booking_id, b.booking_reference, b.booking_date, b.total_amount, b.booking_status,
-               cust.customer_id, cust.full_name, cust.email, cust.phone,
-               m.movie_id, m.title, m.dimension,
-               t.theater_id, t.theater_name, t.location_area, c.city_name,
-               sc.screen_id, sc.screen_name, sc.screen_type,
-               s.screening_id, s.screening_date, sl.slot_name, sl.start_time,
-               p.payment_method, p.payment_status, p.transaction_reference, p.payment_time
-        FROM booking b
-        JOIN customer cust ON cust.customer_id = b.customer_id
-        JOIN screening s ON s.screening_id = b.screening_id
-        JOIN movie m ON m.movie_id = s.movie_id
-        JOIN screen sc ON sc.screen_id = s.screen_id
-        JOIN theater t ON t.theater_id = sc.theater_id
-        JOIN city c ON c.city_id = t.city_id
-        JOIN slot sl ON sl.slot_id = s.slot_id
-        LEFT JOIN payment p ON p.booking_id = b.booking_id
-        WHERE {where_clause}
-        ORDER BY b.booking_date DESC
-    """
-    bookings = database.query(bookings_sql, params)
-
-    # Attach seat breakdown & ticket codes for each booking
-    for b in bookings:
-        b['seat_list'] = database.query(
-            """
-            SELECT se.row_label, se.seat_number, cat.category_name, bs.ticket_price, t.ticket_code
-            FROM booking_seat bs
-            JOIN seat se ON se.seat_id = bs.seat_id
-            JOIN seat_category cat ON cat.category_id = se.category_id
-            LEFT JOIN ticket t ON t.booking_seat_id = bs.booking_seat_id
-            WHERE bs.booking_id = %s
-            ORDER BY se.row_label, se.seat_number
-            """,
-            (b['booking_id'],)
-        )
-
-    # Master lists for dropdown filters
-    theaters = database.query("SELECT * FROM theater ORDER BY theater_name")
-    movies = database.query("SELECT * FROM movie ORDER BY title")
-    screenings = database.query(
-        """
-        SELECT s.screening_id, s.screening_date, m.title, t.theater_name, sc.screen_name, sl.slot_name, sl.start_time
-        FROM screening s
-        JOIN movie m ON m.movie_id = s.movie_id
-        JOIN screen sc ON sc.screen_id = s.screen_id
-        JOIN theater t ON t.theater_id = sc.theater_id
-        JOIN slot sl ON sl.slot_id = s.slot_id
-        WHERE s.screening_date >= CURDATE() AND s.status = 'SCHEDULED'
-        ORDER BY s.screening_date, t.theater_name, sl.start_time
-        """
-    )
-    slots = database.query("SELECT * FROM slot ORDER BY start_time")
-    screens = database.query("SELECT sc.*, t.theater_name FROM screen sc JOIN theater t ON t.theater_id = sc.theater_id ORDER BY t.theater_name, sc.screen_name")
-
-    # Revenue by Movie breakdown
-    revenue_by_movie = database.query(
-        """
-        SELECT m.title, COUNT(DISTINCT b.booking_id) AS total_bookings,
-               COUNT(bs.booking_seat_id) AS total_tickets,
-               COALESCE(SUM(b.total_amount), 0) AS gross_revenue
-        FROM movie m
-        LEFT JOIN screening s ON s.movie_id = m.movie_id
-        LEFT JOIN booking b ON b.screening_id = s.screening_id AND b.booking_status = 'CONFIRMED'
-        LEFT JOIN booking_seat bs ON bs.booking_id = b.booking_id AND bs.seat_status = 'BOOKED'
-        GROUP BY m.movie_id
-        ORDER BY gross_revenue DESC
-        """
-    )
-
-    # Revenue by Theater breakdown
-    revenue_by_theater = database.query(
-        """
-        SELECT t.theater_name, c.city_name,
-               COUNT(DISTINCT b.booking_id) AS total_bookings,
-               COALESCE(SUM(b.total_amount), 0) AS gross_revenue
-        FROM theater t
-        JOIN city c ON c.city_id = t.city_id
-        LEFT JOIN screen sc ON sc.theater_id = t.theater_id
-        LEFT JOIN screening s ON s.screen_id = sc.screen_id
-        LEFT JOIN booking b ON b.screening_id = s.screening_id AND b.booking_status = 'CONFIRMED'
-        GROUP BY t.theater_id
-        ORDER BY gross_revenue DESC
-        """
-    )
-
-    return render_template(
-        'admin.html',
-        stats=stats,
-        bookings=bookings,
-        theaters=theaters,
-        movies=movies,
-        screenings=screenings,
-        slots=slots,
-        screens=screens,
-        revenue_by_movie=revenue_by_movie,
-        revenue_by_theater=revenue_by_theater,
-        selected_theater=theater_filter,
-        selected_movie=movie_filter,
-        selected_status=status_filter,
-        selected_date=date_filter,
-        search_query=search
-    )
-
-@app.route('/admin/screening-occupancy/<int:screening_id>')
-@manager_required
-def admin_screening_occupancy(screening_id):
-    """API endpoint for manager to view real-time seat occupancy and customer details for any show."""
-    screening = database.query(
-        """
-        SELECT s.*, m.title, t.theater_name, sc.screen_name, sc.screen_type, sl.slot_name, sl.start_time
-        FROM screening s
-        JOIN movie m ON m.movie_id = s.movie_id
-        JOIN screen sc ON sc.screen_id = s.screen_id
-        JOIN theater t ON t.theater_id = sc.theater_id
-        JOIN slot sl ON sl.slot_id = s.slot_id
-        WHERE s.screening_id = %s
-        """,
-        (screening_id,),
-        one=True
-    )
-    if not screening:
-        return jsonify({'error': 'Screening not found'}), 404
-
-    seats = database.query(
-        """
-        SELECT s.seat_id, s.row_label, s.seat_number, cat.category_name,
-               b.booking_id, b.booking_reference, b.booking_date, b.booking_status,
-               cust.full_name AS booked_by, cust.email AS customer_email, cust.phone AS customer_phone
-        FROM seat s
-        JOIN seat_category cat ON cat.category_id = s.category_id
-        LEFT JOIN booking_seat bs ON bs.seat_id = s.seat_id AND bs.seat_status = 'BOOKED'
-        LEFT JOIN booking b ON b.booking_id = bs.booking_id AND b.screening_id = %s AND b.booking_status = 'CONFIRMED'
-        LEFT JOIN customer cust ON cust.customer_id = b.customer_id
-        WHERE s.screen_id = %s
-        ORDER BY s.row_label, s.seat_number
-        """,
-        (screening_id, screening['screen_id'])
-    )
-
-    total_seats = len(seats)
-    occupied_count = sum(1 for s in seats if s.get('booking_id'))
-    rate = round((occupied_count / total_seats * 100), 1) if total_seats > 0 else 0
-
-    return jsonify({
-        'screening': dict(screening),
-        'total_seats': total_seats,
-        'occupied_count': occupied_count,
-        'occupancy_rate': rate,
-        'seats': [dict(s) for s in seats]
-    })
-
-@app.route('/admin/add-screening', methods=['POST'])
-@manager_required
-def admin_add_screening():
-    movie_id = request.form.get('movie_id')
-    screen_id = request.form.get('screen_id')
-    slot_id = request.form.get('slot_id')
-    screening_date = request.form.get('screening_date')
-    base_price = request.form.get('base_price', '250.00')
-
-    if not (movie_id and screen_id and slot_id and screening_date and base_price):
-        flash('Please fill in all fields to schedule a new showtime.')
-        return redirect(url_for('admin_portal'))
-
-    # Conflict check: is this screen already booked for this slot on this date?
-    conflict = database.query(
-        "SELECT screening_id FROM screening WHERE screen_id = %s AND slot_id = %s AND screening_date = %s AND status = 'SCHEDULED'",
-        (screen_id, slot_id, screening_date),
-        one=True
-    )
-    if conflict:
-        flash('Conflict detected: This screen is already scheduled for that time slot on the selected date.')
-        return redirect(url_for('admin_portal'))
-
-    conn = database.get_db()
-    cur = conn.cursor()
-    try:
-        cur.execute(database.adapt_sql(
-            """
-            INSERT INTO screening (movie_id, screen_id, slot_id, screening_date, base_price, status)
-            VALUES (%s, %s, %s, %s, %s, 'SCHEDULED')
-            """
-        ), (movie_id, screen_id, slot_id, screening_date, float(base_price)))
-        conn.commit()
-        flash('New showtime scheduled successfully!')
-    finally:
-        cur.close()
-        conn.close()
-
-    return redirect(url_for('admin_portal'))
-
-if __name__ == '__main__':
-    host = os.getenv('FLASK_HOST', '127.0.0.1')
-    port = int(os.getenv('FLASK_PORT', '5000'))
-    debug = os.getenv('FLASK_DEBUG', '1') == '1'
-    print(f"CineSphere running at http://{host}:{port}")
-    app.run(host=host, port=port, debug=debug)
+if __name__=='__main__': app.run(host=os.getenv('FLASK_HOST','127.0.0.1'),port=int(os.getenv('FLASK_PORT','5000')),debug=os.getenv('FLASK_DEBUG','1')=='1')

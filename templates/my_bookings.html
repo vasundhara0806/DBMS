@@ -1,1 +1,81 @@
-{% extends 'base.html' %}{% block content %}<h1>My bookings</h1><div class="grid">{% for b in bookings %}<article class="show"><h2>{{ b.title }}</h2><p>Booking #{{ b.booking_id }} · <strong>{{ b.booking_status }}</strong></p><p>{{ b.theater_name }}, {{ b.city }} · {{ b.screen_name }}</p><p>{{ b.screening_date }} · {{ b.slot_name }}{% if b.start_time %} · {{ b.start_time }}{% endif %}</p><p>Seats: {% for s in b.seats %}{{ s.row_label }}{{ s.seat_number }}{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}</p><p class="price">₹{{ '%.2f'|format(b.total_amount) }}</p>{% if b.booking_status=='CONFIRMED' %}<form method="post" action="{{ url_for('cancel_booking',booking_id=b.booking_id) }}" onsubmit="return confirm('Cancel this booking?')"><button>Cancel booking</button></form>{% endif %}</article>{% else %}<p>You have no bookings yet.</p>{% endfor %}</div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}My Bookings · CineSphere{% endblock %}
+
+{% block content %}
+<div class="panel-header">
+  <div>
+    <h1>My Bookings</h1>
+    <p>View your upcoming shows, e-tickets, and booking transaction history.</p>
+  </div>
+  <div>
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+      Book Another Movie
+    </a>
+  </div>
+</div>
+
+<div class="grid">
+  {% for b in bookings %}
+    <article class="panel" style="margin-bottom:0;display:flex;flex-direction:column;justify-content:space-between;">
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <span style="font-family:monospace;font-weight:700;color:var(--accent-light);">
+            {{ b.booking_reference }}
+          </span>
+          {% if b.booking_status == 'CONFIRMED' %}
+            <span class="badge badge-success">Confirmed</span>
+          {% else %}
+            <span class="badge badge-danger">Cancelled</span>
+          {% endif %}
+        </div>
+
+        <h2 style="font-size:1.35rem;margin-bottom:6px;">{{ b.title }}</h2>
+        <p class="text-sm muted" style="margin-bottom:12px;">
+          {{ b.theater_name }} ({{ b.location_area }}) · {{ b.screen_name }}
+        </p>
+
+        <div style="background:rgba(255,255,255,0.03);padding:12px;border-radius:10px;margin-bottom:16px;">
+          <div class="text-sm" style="margin-bottom:4px;">
+            <span class="muted">Date & Time:</span>
+            <strong>{{ b.screening_date }} · {{ b.slot_name }} ({{ b.start_time[:5] if b.start_time else '' }})</strong>
+          </div>
+          <div class="text-sm">
+            <span class="muted">Seats:</span>
+            <strong>
+              {% for s in b.seats %}
+                {{ s.row_label }}{{ s.seat_number }} ({{ s.category_name }}){% if not loop.last %}, {% endif %}
+              {% else %}
+                —
+              {% endfor %}
+            </strong>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+          <span class="muted text-sm">Paid Total:</span>
+          <span class="price">₹{{ '%.2f'|format(b.total_amount) }}</span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a href="{{ url_for('confirmation', booking_id=b.booking_id) }}" class="btn btn-sm" style="flex:1;">
+          View Ticket
+        </a>
+        {% if b.booking_status == 'CONFIRMED' %}
+          <form method="post" action="{{ url_for('cancel_booking', booking_id=b.booking_id) }}" onsubmit="return confirm('Are you sure you want to cancel this booking?')" style="margin:0;">
+            <button class="btn btn-danger btn-sm" type="submit">
+              Cancel
+            </button>
+          </form>
+        {% endif %}
+      </div>
+    </article>
+  {% else %}
+    <div class="panel" style="grid-column:1/-1;text-align:center;padding:48px 20px;">
+      <h3>You haven't made any bookings yet.</h3>
+      <p class="muted">Explore current blockbuster movies and reserve your favorite seats!</p>
+      <a href="{{ url_for('index') }}" class="btn" style="margin-top:12px;">Browse Movies</a>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

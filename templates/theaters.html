@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}CineSphere · Theaters in {{ city }}{% endblock %}
+
+{% block content %}
+<div class="panel-header">
+  <div>
+    <h1>Theaters & Multiplexes in {{ city }}</h1>
+    <p>Select your preferred cinema to view screens, formats, and show schedules.</p>
+  </div>
+  <div>
+    <a href="{{ url_for('index', city=city) }}" class="btn btn-secondary">
+      Back to Movies
+    </a>
+  </div>
+</div>
+
+{% for t in theaters %}
+  <div class="theater-card">
+    <div class="theater-header">
+      <div>
+        <h2 class="theater-name">{{ t.theater_name }}</h2>
+        <div class="theater-location">{{ t.address }}, {{ t.location_area }} · {{ t.city_name }}</div>
+        <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+          {% for sc in t.screens %}
+            <span class="badge badge-accent">{{ sc.screen_name }} ({{ sc.screen_type }})</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div>
+        <span class="badge">{{ t.screen_count }} Screens</span>
+      </div>
+    </div>
+
+    <div>
+      <h3 style="font-size:1rem;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">
+        Scheduled Shows Today & Upcoming:
+      </h3>
+
+      {% if t.today_screenings %}
+        <div class="timings-grid">
+          {% for s in t.today_screenings %}
+            <a href="{{ url_for('seats', screening_id=s.screening_id) }}" class="time-slot-btn">
+              <span class="slot-time">{{ s.start_time[:5] if s.start_time else '10:00' }}</span>
+              <span class="slot-info" style="font-weight:600;color:#ffffff;">{{ s.title }}</span>
+              <span class="slot-info">{{ s.screen_type }} · {{ s.slot_name }}</span>
+              <span class="slot-price">from ₹{{ '%.0f'|format(s.base_price) }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="muted text-sm">No scheduled screenings currently listed for today. Please check other dates.</p>
+      {% endif %}
+    </div>
+  </div>
+{% else %}
+  <div class="panel" style="text-align:center;padding:40px;">
+    <h3>No theaters found in {{ city }}.</h3>
+    <p class="muted">Please switch city using the selector at the top.</p>
+  </div>
+{% endfor %}
+{% endblock %}

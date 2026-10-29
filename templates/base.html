@@ -1,1 +1,99 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{% block title %}CineSphere{% endblock %}</title><link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"></head><body><header><a class="brand" href="{{ url_for('index') }}">✦ CineSphere</a><nav><a href="{{ url_for('index') }}">Movies</a>{% if session.get('customer_id') %}<a href="{{ url_for('my_bookings') }}">My Bookings</a><a href="{{ url_for('logout') }}">Logout</a>{% else %}<a href="{{ url_for('login') }}">Login</a><a href="{{ url_for('register') }}">Register</a>{% endif %}</nav></header><main>{% for message in get_flashed_messages() %}<div class="flash">{{ message }}</div>{% endfor %}{% block content %}{% endblock %}</main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}CineSphere · Movie Ticket Booking{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <a class="brand" href="{{ url_for('index') }}">
+      <svg class="brand-icon" viewBox="0 0 24 24">
+        <path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/>
+      </svg>
+      CineSphere
+    </a>
+
+    <!-- City Filter Selector in Header -->
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="muted text-sm">City:</span>
+      <form method="get" action="{{ request.path }}" style="margin:0;">
+        {% for k, v in request.args.items() %}
+          {% if k != 'city' %}
+            <input type="hidden" name="{{ k }}" value="{{ v }}">
+          {% endif %}
+        {% endfor %}
+        <select name="city" onchange="this.form.submit()" style="margin:0;padding:5px 10px;font-size:0.85rem;background:#18132e;border-color:var(--panel-border);">
+          {% for c in all_cities %}
+            <option value="{{ c.city_name }}" {% if c.city_name == current_city %}selected{% endif %}>
+              {{ c.city_name }}
+            </option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+
+    <nav>
+      <a href="{{ url_for('index') }}">Movies</a>
+      <a href="{{ url_for('theaters_list') }}">Theaters</a>
+      
+      {% if session.get('customer_id') %}
+        {% if session.get('role') in ('MANAGER', 'ADMIN') %}
+          <a href="{{ url_for('admin_portal') }}" style="color:var(--accent);font-weight:700;">
+            <span class="nav-badge">Manager Portal</span>
+          </a>
+        {% endif %}
+        <a href="{{ url_for('my_bookings') }}">My Bookings</a>
+        <span class="role-pill">{{ session.get('customer_name', 'User') }}</span>
+        <a href="{{ url_for('logout') }}" class="btn-secondary btn-sm">Logout</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('register') }}" class="btn btn-sm">Register</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <!-- Demo Switcher Sub-Bar for Quick Evaluation -->
+  <div style="background:rgba(28,23,50,0.9);border-bottom:1px solid var(--panel-border);padding:6px 5%;font-size:0.8rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+    <div style="color:var(--muted);">
+      <span style="font-weight:700;color:var(--accent-light);">DBMS Mini-Project Demo Mode:</span>
+      Logged in as: <strong style="color:#ffffff;">{{ session.get('customer_name', 'Guest / Anonymous') }}</strong>
+      ({{ session.get('role', 'GUEST') }})
+    </div>
+    <div style="display:flex;gap:10px;">
+      <a href="{{ url_for('switch_role', to='manager') }}" style="color:var(--accent);font-weight:600;text-decoration:underline;">
+        Switch to Manager View (Vikram)
+      </a>
+      <span style="color:var(--muted-dark);">|</span>
+      <a href="{{ url_for('switch_role', to='customer') }}" style="color:var(--accent);font-weight:600;text-decoration:underline;">
+        Switch to Customer View (Arjun)
+      </a>
+    </div>
+  </div>
+
+  <main>
+    {% for message in get_flashed_messages() %}
+      <div class="flash">
+        <svg style="width:20px;height:20px;fill:var(--accent);flex-shrink:0;" viewBox="0 0 24 24">
+          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+        </svg>
+        <span>{{ message }}</span>
+      </div>
+    {% endfor %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer>
+    <div style="max-width:1100px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div>
+        <strong>CineSphere</strong> · Multi-Theater Movie Ticket Booking System (DBMS Mini Project)
+      </div>
+      <div>
+        Active Engine: <span class="badge badge-accent">{{ active_engine|upper }}</span>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>

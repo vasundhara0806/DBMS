@@ -1,1 +1,37 @@
-{% extends 'base.html' %}{% block content %}<div class="panel" style="max-width:500px;margin:auto"><h1>Create account</h1><form method="post"><label>Full name<input name="name" required></label><label>Email<input name="email" type="email" required></label><label>Phone<input name="phone" required></label><label>Password<input name="password" type="password" minlength="6" required></label><button>Register</button></form></div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Register · CineSphere{% endblock %}
+
+{% block content %}
+<div class="panel" style="max-width:500px;margin:30px auto;padding:32px;">
+  <div style="text-align:center;margin-bottom:24px;">
+    <h1 style="font-size:1.8rem;margin-bottom:6px;">Create Account</h1>
+    <p class="muted text-sm">Join CineSphere to reserve movie tickets across all cities</p>
+  </div>
+
+  <form method="post">
+    <label>Full Name
+      <input name="name" type="text" placeholder="e.g. Rahul Verma" required>
+    </label>
+
+    <label>Email Address
+      <input name="email" type="email" placeholder="e.g. rahul@example.com" required>
+    </label>
+
+    <label>Phone Number
+      <input name="phone" type="tel" placeholder="e.g. 9876543210" required>
+    </label>
+
+    <label>Password (Minimum 6 characters)
+      <input name="password" type="password" minlength="6" placeholder="Create strong password" required>
+    </label>
+
+    <button type="submit" class="btn" style="width:100%;padding:12px;margin-top:8px;">
+      Register Account
+    </button>
+  </form>
+
+  <p style="text-align:center;margin-top:20px;font-size:0.9rem;" class="muted">
+    Already registered? <a href="{{ url_for('login') }}" style="color:var(--accent);font-weight:600;">Sign in here</a>
+  </p>
+</div>
+{% endblock %}

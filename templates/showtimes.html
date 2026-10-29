@@ -1,1 +1,83 @@
-{% extends 'base.html' %}{% block content %}<h1>Showtimes · {{ movie.title }}</h1><div class="grid">{% for s in showtimes %}<article class="show"><h2>{{ s.theater_name }}</h2><p>{{ s.city }} · {{ s.screen_name }} ({{ s.screen_type }})</p><p>{{ s.screening_date }} · {{ s.slot_name }}{% if s.start_time %} at {{ s.start_time }}{% endif %}</p><p class="price">₹{{ s.base_price }}</p><a class="btn" href="{{ url_for('seats',screening_id=s.screening_id) }}">Choose seats</a></article>{% else %}<p>No upcoming showtimes are currently available.</p>{% endfor %}</div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Showtimes · {{ movie.title }} · CineSphere{% endblock %}
+
+{% block content %}
+<div class="panel" style="padding:22px;margin-bottom:20px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div>
+      <span class="badge badge-accent">{{ movie.rating or 'UA' }}</span>
+      <span class="badge">{{ movie.language }}</span>
+      <span class="badge">{{ movie.dimension or '2D, 3D' }}</span>
+      <h1 style="font-size:1.8rem;margin:8px 0 4px;">{{ movie.title }}</h1>
+      <p class="muted text-sm" style="margin:0;">{{ movie.duration_minutes }} Minutes · Select theater, screen format, and show timing</p>
+    </div>
+    <div>
+      <a href="{{ url_for('movie_details', movie_id=movie.movie_id) }}" class="btn btn-secondary btn-sm">
+        Movie Details
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- BookMyShow Style Date Navigation Pills -->
+<div class="panel-header" style="margin-bottom:8px;">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <h3 style="margin:0;font-size:1.05rem;">Select Date:</h3>
+    <div class="date-nav" style="margin:0;">
+      {% for opt in date_options %}
+        <a href="{{ url_for('showtimes', movie_id=movie.movie_id, city=current_city, date=opt.date_str) }}"
+           class="date-pill {% if opt.is_selected %}active{% endif %}">
+          <span class="day">{{ opt.day_name }}</span>
+          <span class="date-num">{{ opt.display_date }}</span>
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+  <div style="color:var(--muted);font-size:0.85rem;">
+    City: <strong style="color:var(--accent-light);">{{ current_city }}</strong>
+  </div>
+</div>
+
+<!-- Theaters & Timings List -->
+{% if theaters_list %}
+  <div style="margin-top:20px;">
+    {% for t in theaters_list %}
+      <div class="theater-card">
+        <div class="theater-header">
+          <div>
+            <h2 class="theater-name">{{ t.theater_name }}</h2>
+            <div class="theater-location">{{ t.address }}, {{ t.location_area }} · {{ t.city_name }}</div>
+          </div>
+          <div>
+            <span class="badge badge-accent">Certified Multiplex</span>
+          </div>
+        </div>
+
+        <div class="timings-grid">
+          {% for s in t.shows %}
+            <a href="{{ url_for('seats', screening_id=s.screening_id) }}" class="time-slot-btn">
+              <span class="slot-time">{{ s.start_time[:5] if s.start_time else '10:00' }}</span>
+              <span class="slot-info">{{ s.screen_name }}</span>
+              <span class="slot-info" style="color:var(--accent-light);font-weight:600;">{{ s.screen_type }}</span>
+              <span class="slot-price">₹{{ '%.0f'|format(s.base_price) }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="panel" style="text-align:center;padding:48px 20px;margin-top:20px;">
+    <h3>No showtimes found for the selected date in {{ current_city }}.</h3>
+    <p class="muted">Screenings might be scheduled for upcoming days or in other locations.</p>
+    <div style="display:flex;gap:12px;justify-content:center;margin-top:16px;">
+      <a href="{{ url_for('showtimes', movie_id=movie.movie_id, city=current_city, date=date_options[0].date_str) }}" class="btn">
+        View Today's Shows
+      </a>
+      <a href="{{ url_for('theaters_list', city=current_city) }}" class="btn btn-secondary">
+        Browse Theaters
+      </a>
+    </div>
+  </div>
+{% endif %}
+{% endblock %}

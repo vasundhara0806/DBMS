@@ -1,1 +1,53 @@
-{% extends 'base.html' %}{% block content %}<div class="panel" style="max-width:500px;margin:auto"><h1>Welcome back</h1><form method="post"><input type="hidden" name="next" value="{{ next or '' }}"><label>Email<input name="email" type="email" required></label><label>Password<input name="password" type="password" required></label><button>Log in</button></form><p>New here? <a href="{{ url_for('register') }}">Create an account</a></p></div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Login · CineSphere{% endblock %}
+
+{% block content %}
+<div class="panel" style="max-width:500px;margin:30px auto;padding:32px;">
+  <div style="text-align:center;margin-bottom:24px;">
+    <h1 style="font-size:1.8rem;margin-bottom:6px;">Welcome Back</h1>
+    <p class="muted text-sm">Sign in to your CineSphere account</p>
+  </div>
+
+  <form method="post">
+    <input type="hidden" name="next" value="{{ next or '' }}">
+
+    <label>Email Address
+      <input name="email" id="emailInput" type="email" placeholder="e.g. arjun@example.com" required>
+    </label>
+
+    <label>Password
+      <input name="password" id="passwordInput" type="password" placeholder="Enter password" required>
+    </label>
+
+    <button type="submit" class="btn" style="width:100%;padding:12px;margin-top:8px;">
+      Sign In
+    </button>
+  </form>
+
+  <!-- Demo Accounts Fast Helper -->
+  <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--panel-border);">
+    <span class="muted text-sm" style="display:block;margin-bottom:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">
+      Quick Demo Sign In:
+    </span>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="fillCreds('manager@cinesphere.com', 'Manager@123')">
+        Fill Manager Credentials (Vikram Malhotra)
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="fillCreds('arjun@example.com', 'Demo@123')">
+        Fill Customer Credentials (Arjun Kumar)
+      </button>
+    </div>
+  </div>
+
+  <p style="text-align:center;margin-top:20px;font-size:0.9rem;" class="muted">
+    New to CineSphere? <a href="{{ url_for('register') }}" style="color:var(--accent);font-weight:600;">Create an account</a>
+  </p>
+</div>
+
+<script>
+  function fillCreds(email, password) {
+    document.getElementById('emailInput').value = email;
+    document.getElementById('passwordInput').value = password;
+  }
+</script>
+{% endblock %}

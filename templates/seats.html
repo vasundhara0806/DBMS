@@ -1,1 +1,161 @@
-{% extends 'base.html' %}{% block content %}<h1>Choose your seats</h1><p>{{ screening.title }} · {{ screening.theater_name }} · {{ screening.screen_name }} · {{ screening.screening_date }} · {{ screening.slot_name }}</p><div class="panel"><p style="text-align:center">SCREEN</p><form method="post" action="{{ url_for('booking_review',screening_id=screening.screening_id) }}">{% for row, group in seats|groupby('row_label') %}<div class="row"><strong>{{ row }}</strong> {% for seat in group %}{% if seat.seat_id in booked_seat_ids %}<span class="seat booked">{{ seat.seat_number }}</span>{% else %}<label class="seat"><input type="checkbox" name="seat_ids" value="{{ seat.seat_id }}">{{ seat.seat_number }}</label>{% endif %}{% endfor %}</div>{% endfor %}<p class="muted">Green seats are available; red seats are booked.</p><button>Review booking</button></form></div>{% endblock %}
+{% extends 'base.html' %}
+{% block title %}Choose Seats · {{ screening.title }} · CineSphere{% endblock %}
+
+{% block content %}
+<div class="panel" style="padding:20px;margin-bottom:24px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+    <div>
+      <span class="badge badge-accent">{{ screening.screen_name }} · {{ screening.screen_type }}</span>
+      <h1 style="font-size:1.6rem;margin:6px 0 2px;">{{ screening.title }}</h1>
+      <p class="muted text-sm" style="margin:0;">
+        {{ screening.theater_name }} ({{ screening.location_area }}) · {{ screening.screening_date }} · {{ screening.slot_name }} ({{ screening.start_time[:5] if screening.start_time else '10:00' }})
+      </p>
+    </div>
+    <div>
+      <a href="{{ url_for('showtimes', movie_id=screening.movie_id) }}" class="btn btn-secondary btn-sm">
+        Change Showtime
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="panel cinema-container">
+  <!-- Screen Direction Bar -->
+  <div class="screen-indicator"></div>
+  <div class="screen-text">All eyes this way · Screen</div>
+
+  <form id="seatForm" method="post" action="{{ url_for('booking_review', screening_id=screening.screening_id) }}">
+    
+    <!-- Render Seats Grouped by Category and Row -->
+    {% set seat_groups = seats|groupby('category_name') %}
+    
+    {% for cat_name, cat_seats in seat_groups %}
+      <div class="seat-tier-section">
+        <div class="tier-title-bar">
+          <span>{{ cat_name }}</span>
+          <span style="color:var(--accent-light);">₹{{ '%.0f'|format(cat_seats[0].seat_price) }}</span>
+        </div>
+
+        {% for row, r_seats in cat_seats|groupby('row_label') %}
+          <div class="seat-row">
+            <span class="row-label">{{ row }}</span>
+
+            {% for s in r_seats %}
+              {# Add an aisle gap in the middle (e.g., between seat 5 and 6) #}
+              {% if loop.index == 6 %}
+                <span class="aisle-gap"></span>
+              {% endif %}
+
+              {% if s.seat_id in booked_seat_ids %}
+                <span class="seat booked" title="Seat {{ s.row_label }}{{ s.seat_number }} (Booked)">
+                  {{ s.seat_number }}
+                </span>
+              {% else %}
+                <label class="seat {% if 'Recliner' in s.category_name or 'VIP' in s.category_name %}tier-vip{% endif %}"
+                       id="seat-label-{{ s.seat_id }}"
+                       title="{{ s.category_name }} · Seat {{ s.row_label }}{{ s.seat_number }} · ₹{{ '%.0f'|format(s.seat_price) }}">
+                  <input type="checkbox"
+                         name="seat_ids"
+                         value="{{ s.seat_id }}"
+                         data-label="{{ s.row_label }}{{ s.seat_number }}"
+                         data-price="{{ s.seat_price }}"
+                         onchange="handleSeatToggle(this, 'seat-label-{{ s.seat_id }}')">
+                  {{ s.seat_number }}
+                </label>
+              {% endif %}
+            {% endfor %}
+
+            <span class="row-label">{{ row }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+
+    <!-- Legend -->
+    <div class="seat-legend">
+      <div class="legend-item">
+        <span class="legend-sample" style="background:rgba(46,204,113,0.3);border:1px solid rgba(46,204,113,0.6);"></span>
+        <span>Available</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-sample" style="background:rgba(224,86,253,0.3);border:1px solid rgba(224,86,253,0.7);"></span>
+        <span>VIP Recliner</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-sample" style="background:var(--accent);border:1px solid var(--accent-light);"></span>
+        <span>Selected</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-sample" style="background:rgba(255,94,126,0.3);border:1px solid rgba(255,94,126,0.6);"></span>
+        <span>Booked</span>
+      </div>
+    </div>
+
+    <!-- Live Calculation & Submit Bar -->
+    <div class="booking-summary-bar">
+      <div>
+        <div style="font-size:0.85rem;color:var(--muted);">Selected Seats:</div>
+        <div id="selectedSeatsDisplay" style="font-size:1.1rem;font-weight:700;color:#ffffff;">
+          None selected
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:20px;">
+        <div style="text-align:right;">
+          <div style="font-size:0.85rem;color:var(--muted);">Total Amount:</div>
+          <div id="totalPriceDisplay" class="price">₹0.00</div>
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn" disabled style="opacity:0.5;cursor:not-allowed;">
+          Review Booking
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+  const selectedSeats = new Map();
+
+  function handleSeatToggle(checkbox, labelId) {
+    const label = document.getElementById(labelId);
+    const seatId = checkbox.value;
+    const seatLabel = checkbox.dataset.label;
+    const seatPrice = parseFloat(checkbox.dataset.price);
+
+    if (checkbox.checked) {
+      label.classList.add('selected');
+      selectedSeats.set(seatId, { label: seatLabel, price: seatPrice });
+    } else {
+      label.classList.remove('selected');
+      selectedSeats.delete(seatId);
+    }
+
+    updateSummary();
+  }
+
+  function updateSummary() {
+    const display = document.getElementById('selectedSeatsDisplay');
+    const priceDisplay = document.getElementById('totalPriceDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+
+    if (selectedSeats.size === 0) {
+      display.textContent = 'None selected';
+      priceDisplay.textContent = '₹0.00';
+      submitBtn.disabled = true;
+      submitBtn.style.opacity = '0.5';
+      submitBtn.style.cursor = 'not-allowed';
+    } else {
+      const labels = Array.from(selectedSeats.values()).map(s => s.label).join(', ');
+      let total = 0;
+      selectedSeats.forEach(s => { total += s.price; });
+
+      display.textContent = `${labels} (${selectedSeats.size} seats)`;
+      priceDisplay.textContent = '₹' + total.toFixed(2);
+      submitBtn.disabled = false;
+      submitBtn.style.opacity = '1';
+      submitBtn.style.cursor = 'pointer';
+    }
+  }
+</script>
+{% endblock %}

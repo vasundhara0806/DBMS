@@ -1,0 +1,1039 @@
+{
+  "_metadata": {
+    "system": "CineSphere Cinema Management & DBMS Portal",
+    "purpose": "Live Database Snapshot & Real-Time Sync File",
+    "last_synced_at": "2026-10-31 18:33:19",
+    "last_action": "Admin updated Booking #2 status to 'CANCELLED'",
+    "active_engine": "sqlite",
+    "summary_counts": {
+      "movies": 6,
+      "screenings": 19,
+      "theaters": 6,
+      "screens": 9,
+      "bookings": 4,
+      "tickets": 6,
+      "payments": 4,
+      "concession_items": 6,
+      "customers": 5,
+      "seat_categories": 3
+    }
+  },
+  "movies": [
+    {
+      "movie_id": 1,
+      "title": "The Martian Extended Edition",
+      "synopsis": "Updated synopsis for the test suite.",
+      "language": "English",
+      "duration_minutes": 155,
+      "release_date": "2015-10-02",
+      "rating": "UA",
+      "dimension": "IMAX 3D",
+      "genres": "Sci-Fi, Adventure"
+    },
+    {
+      "movie_id": 2,
+      "title": "Project Hail Mary",
+      "synopsis": "A lone astronaut awakens on a desperate mission to save Earth and uncover the cosmic mystery threatening humanity.",
+      "language": "English",
+      "duration_minutes": 150,
+      "release_date": "2026-03-20",
+      "rating": "UA",
+      "dimension": "IMAX 3D",
+      "genres": "Sci-Fi, Adventure"
+    },
+    {
+      "movie_id": 3,
+      "title": "Gran Turismo",
+      "synopsis": "A skilled gamer gets the opportunity to turn his virtual racing abilities into a real-world motorsport career.",
+      "language": "English",
+      "duration_minutes": 134,
+      "release_date": "2023-08-25",
+      "rating": "UA",
+      "dimension": "4DX, 2D",
+      "genres": "Action, Drama"
+    },
+    {
+      "movie_id": 4,
+      "title": "Spider-Man: Brand New Day",
+      "synopsis": "Spider-Man faces a new chapter of challenges and adventures as he protects his city from emerging high-tech threats.",
+      "language": "English",
+      "duration_minutes": 140,
+      "release_date": "2026-07-31",
+      "rating": "UA",
+      "dimension": "IMAX 3D, 2D",
+      "genres": "Action, Sci-Fi"
+    },
+    {
+      "movie_id": 5,
+      "title": "Interstellar",
+      "synopsis": "A team of explorers travel through a wormhole in space in an attempt to ensure humanity survival.",
+      "language": "English",
+      "duration_minutes": 169,
+      "release_date": "2014-11-07",
+      "rating": "UA",
+      "dimension": "IMAX 70mm",
+      "genres": "Sci-Fi, Drama"
+    },
+    {
+      "movie_id": 6,
+      "title": "Dune: Part Two",
+      "synopsis": "Paul Atreides unites with Chani and the Fremen while seeking revenge against the conspirators who destroyed his family.",
+      "language": "English",
+      "duration_minutes": 166,
+      "release_date": "2024-03-01",
+      "rating": "UA",
+      "dimension": "IMAX 3D",
+      "genres": "Action, Sci-Fi"
+    }
+  ],
+  "screenings": [
+    {
+      "screening_id": 19,
+      "movie_id": 4,
+      "screen_id": 2,
+      "slot_id": 3,
+      "screening_date": "2026-11-02",
+      "base_price": 280.0,
+      "status": "SCHEDULED",
+      "movie_title": "Spider-Man: Brand New Day",
+      "dimension": "IMAX 3D, 2D",
+      "language": "English",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 2 (Dolby Atmos)",
+      "screen_type": "Dolby Atmos 2D",
+      "slot_name": "Evening Prime",
+      "start_time": "17:15:00"
+    },
+    {
+      "screening_id": 18,
+      "movie_id": 2,
+      "screen_id": 1,
+      "slot_id": 4,
+      "screening_date": "2026-11-02",
+      "base_price": 350.0,
+      "status": "SCHEDULED",
+      "movie_title": "Project Hail Mary",
+      "dimension": "IMAX 3D",
+      "language": "English",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser",
+      "slot_name": "Night Show",
+      "start_time": "20:45:00"
+    },
+    {
+      "screening_id": 17,
+      "movie_id": 6,
+      "screen_id": 8,
+      "slot_id": 4,
+      "screening_date": "2026-11-01",
+      "base_price": 320.0,
+      "status": "SCHEDULED",
+      "movie_title": "Dune: Part Two",
+      "dimension": "IMAX 3D",
+      "language": "English",
+      "theater_name": "CineSphere Orion Mall",
+      "location_area": "Rajajinagar",
+      "city_name": "Bengaluru",
+      "screen_name": "Screen 1 (PXL Atmos)",
+      "screen_type": "Dolby Atmos",
+      "slot_name": "Night Show",
+      "start_time": "20:45:00"
+    },
+    {
+      "screening_id": 16,
+      "movie_id": 6,
+      "screen_id": 4,
+      "slot_id": 3,
+      "screening_date": "2026-11-01",
+      "base_price": 350.0,
+      "status": "SCHEDULED",
+      "movie_title": "Dune: Part Two",
+      "dimension": "IMAX 3D",
+      "language": "English",
+      "theater_name": "CineSphere IMAX Forum Mall",
+      "location_area": "Kukatpally",
+      "city_name": "Hyderabad",
+      "screen_name": "IMAX Laser Experience",
+      "screen_type": "IMAX Laser",
+      "slot_name": "Evening Prime",
+      "start_time": "17:15:00"
+    },
+    {
+      "screening_id": 15,
+      "movie_id": 6,
+      "screen_id": 1,
+      "slot_id": 3,
+      "screening_date": "2026-11-01",
+      "base_price": 350.0,
+      "status": "SCHEDULED",
+      "movie_title": "Dune: Part Two",
+      "dimension": "IMAX 3D",
+      "language": "English",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser",
+      "slot_name": "Evening Prime",
+      "start_time": "17:15:00"
+    },
+    {
+      "screening_id": 1,
+      "movie_id": 1,
+      "screen_id": 1,
+      "slot_id": 1,
+      "screening_date": "2026-11-01",
+      "base_price": 290.0,
+      "status": "SCHEDULED",
+      "movie_title": "The Martian Extended Edition",
+      "dimension": "IMAX 3D",
+      "language": "English",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser",
+      "slot_name": "Morning Show",
+      "start_time": "10:00:00"
+    },
+    {
+      "screening_id": 14,
+      "movie_id": 5,
+      "screen_id": 7,
+      "slot_id": 4,
+      "screening_date": "2026-10-31",
+      "base_price": 340.0,
+      "status": "SCHEDULED",
+      "movie_title": "Interstellar",
+      "dimension": "IMAX 70mm",
+      "language": "English",
+      "theater_name": "CineSphere Forum Koramangala",
+      "location_area": "Koramangala",
+      "city_name": "Bengaluru",
+      "screen_name": "Screen 1 (IMAX)",
+      "screen_type": "IMAX 3D",
+      "slot_name": "Night Show",
+      "start_time": "20:45:00"
+    },
+    {
+      "screening_id": 13,
+      "movie_id": 5,
+      "screen_id": 4,
+      "slot_id": 1,
+      "screening_date": "2026-10-31",
+      "base_price": 300.0,
+      "status": "SCHEDULED",
+      "movie_title": "Interstellar",
+      "dimension": "IMAX 70mm",
+      "language": "English",
+      "theater_name": "CineSphere IMAX Forum Mall",
+      "location_area": "Kukatpally",
+      "city_name": "Hyderabad",
+      "screen_name": "IMAX Laser Experience",
+      "screen_type": "IMAX Laser",
+      "slot_name": "Morning Show",
+      "start_time": "10:00:00"
+    },
+    {
+      "screening_id": 12,
+      "movie_id": 4,
+      "screen_id": 7,
+      "slot_id": 3,
+      "screening_date": "2026-10-31",
+      "base_price": 320.0,
+      "status": "SCHEDULED",
+      "movie_title": "Spider-Man: Brand New Day",
+      "dimension": "IMAX 3D, 2D",
+      "language": "English",
+      "theater_name": "CineSphere Forum Koramangala",
+      "location_area": "Koramangala",
+      "city_name": "Bengaluru",
+      "screen_name": "Screen 1 (IMAX)",
+      "screen_type": "IMAX 3D",
+      "slot_name": "Evening Prime",
+      "start_time": "17:15:00"
+    },
+    {
+      "screening_id": 11,
+      "movie_id": 4,
+      "screen_id": 4,
+      "slot_id": 4,
+      "screening_date": "2026-10-31",
+      "base_price": 360.0,
+      "status": "SCHEDULED",
+      "movie_title": "Spider-Man: Brand New Day",
+      "dimension": "IMAX 3D, 2D",
+      "language": "English",
+      "theater_name": "CineSphere IMAX Forum Mall",
+      "location_area": "Kukatpally",
+      "city_name": "Hyderabad",
+      "screen_name": "IMAX Laser Experience",
+      "screen_type": "IMAX Laser",
+      "slot_name": "Night Show",
+      "start_time": "20:45:00"
+    },
+    {
+      "screening_id": 10,
+      "movie_id": 4,
+      "screen_id": 1,
+      "slot_id": 5,
+      "screening_date": "2026-10-31",
+      "base_price": 380.0,
+      "status": "SCHEDULED",
+      "movie_title": "Spider-Man: Brand New Day",
+      "dimension": "IMAX 3D, 2D",
+      "language": "English",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser",
+      "slot_name": "Late Night Show",
+      "start_time": "23:15:00"
+    },
+    {
+      "screening_id": 9,
+      "movie_id": 3,
+      "screen_id": 2,
+      "slot_id": 4,
+      "screening_date": "2026-10-31",
+      "base_price": 240.0,
+      "status": "SCHEDULED",
+      "movie_title": "Gran Turismo",
+      "dimension": "4DX, 2D",
+      "language": "English",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 2 (Dolby Atmos)",
+      "screen_type": "Dolby Atmos 2D",
+      "slot_name": "Night Show",
+      "start_time": "20:45:00"
+    },
+    {
+      "screening_id": 8,
+      "movie_id": 3,
+      "screen_id": 5,
+      "slot_id": 2,
+      "screening_date": "2026-10-31",
+      "base_price": 260.0,
+      "status": "SCHEDULED",
+      "movie_title": "Gran Turismo",
+      "dimension": "4DX, 2D",
+      "language": "English",
+      "theater_name": "CineSphere IMAX Forum Mall",
+      "location_area": "Kukatpally",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 2 (4DX)",
+      "screen_type": "4DX Motion",
+      "slot_name": "Matinee Show",
+      "start_time": "13:30:00"
+    },
+    {
+      "screening_id": 7,
+      "movie_id": 2,
+      "screen_id": 6,
+      "slot_id": 4,
+      "screening_date": "2026-10-31",
+      "base_price": 280.0,
+      "status": "SCHEDULED",
+      "movie_title": "Project Hail Mary",
+      "dimension": "IMAX 3D",
+      "language": "English",
+      "theater_name": "CineSphere Riverside Gachibowli",
+      "location_area": "Gachibowli",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 1 (Dolby Vision)",
+      "screen_type": "Dolby Vision 4K",
+      "slot_name": "Night Show",
+      "start_time": "20:45:00"
+    },
+    {
+      "screening_id": 6,
+      "movie_id": 2,
+      "screen_id": 4,
+      "slot_id": 3,
+      "screening_date": "2026-10-31",
+      "base_price": 320.0,
+      "status": "SCHEDULED",
+      "movie_title": "Project Hail Mary",
+      "dimension": "IMAX 3D",
+      "language": "English",
+      "theater_name": "CineSphere IMAX Forum Mall",
+      "location_area": "Kukatpally",
+      "city_name": "Hyderabad",
+      "screen_name": "IMAX Laser Experience",
+      "screen_type": "IMAX Laser",
+      "slot_name": "Evening Prime",
+      "start_time": "17:15:00"
+    },
+    {
+      "screening_id": 5,
+      "movie_id": 2,
+      "screen_id": 1,
+      "slot_id": 2,
+      "screening_date": "2026-10-31",
+      "base_price": 300.0,
+      "status": "SCHEDULED",
+      "movie_title": "Project Hail Mary",
+      "dimension": "IMAX 3D",
+      "language": "English",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser",
+      "slot_name": "Matinee Show",
+      "start_time": "13:30:00"
+    },
+    {
+      "screening_id": 4,
+      "movie_id": 1,
+      "screen_id": 2,
+      "slot_id": 2,
+      "screening_date": "2026-10-31",
+      "base_price": 220.0,
+      "status": "SCHEDULED",
+      "movie_title": "The Martian Extended Edition",
+      "dimension": "IMAX 3D",
+      "language": "English",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 2 (Dolby Atmos)",
+      "screen_type": "Dolby Atmos 2D",
+      "slot_name": "Matinee Show",
+      "start_time": "13:30:00"
+    },
+    {
+      "screening_id": 3,
+      "movie_id": 1,
+      "screen_id": 1,
+      "slot_id": 4,
+      "screening_date": "2026-10-31",
+      "base_price": 350.0,
+      "status": "SCHEDULED",
+      "movie_title": "The Martian Extended Edition",
+      "dimension": "IMAX 3D",
+      "language": "English",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser",
+      "slot_name": "Night Show",
+      "start_time": "20:45:00"
+    },
+    {
+      "screening_id": 2,
+      "movie_id": 1,
+      "screen_id": 1,
+      "slot_id": 3,
+      "screening_date": "2026-10-31",
+      "base_price": 320.0,
+      "status": "SCHEDULED",
+      "movie_title": "The Martian Extended Edition",
+      "dimension": "IMAX 3D",
+      "language": "English",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2",
+      "city_name": "Hyderabad",
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser",
+      "slot_name": "Evening Prime",
+      "start_time": "17:15:00"
+    }
+  ],
+  "theaters": [
+    {
+      "theater_id": 1,
+      "city_id": 1,
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "address": "Banjara Hills Road No 2 Hyderabad",
+      "location_area": "Banjara Hills Rd 2",
+      "city_name": "Hyderabad",
+      "state": "Telangana"
+    },
+    {
+      "theater_id": 2,
+      "city_id": 1,
+      "theater_name": "CineSphere IMAX Forum Mall",
+      "address": "Kukatpally Housing Board Colony",
+      "location_area": "Kukatpally",
+      "city_name": "Hyderabad",
+      "state": "Telangana"
+    },
+    {
+      "theater_id": 3,
+      "city_id": 1,
+      "theater_name": "CineSphere Riverside Gachibowli",
+      "address": "Financial District, Nanakramguda",
+      "location_area": "Gachibowli",
+      "city_name": "Hyderabad",
+      "state": "Telangana"
+    },
+    {
+      "theater_id": 4,
+      "city_id": 2,
+      "theater_name": "CineSphere Forum Koramangala",
+      "address": "Hosur Road, 7th Block, Koramangala",
+      "location_area": "Koramangala",
+      "city_name": "Bengaluru",
+      "state": "Karnataka"
+    },
+    {
+      "theater_id": 5,
+      "city_id": 2,
+      "theater_name": "CineSphere Orion Mall",
+      "address": "Dr Rajkumar Rd, Rajajinagar",
+      "location_area": "Rajajinagar",
+      "city_name": "Bengaluru",
+      "state": "Karnataka"
+    },
+    {
+      "theater_id": 6,
+      "city_id": 3,
+      "theater_name": "CineSphere Palladium Luxe",
+      "address": "High Street Phoenix, Lower Parel",
+      "location_area": "Lower Parel",
+      "city_name": "Mumbai",
+      "state": "Maharashtra"
+    }
+  ],
+  "screens": [
+    {
+      "screen_id": 1,
+      "theater_id": 1,
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser",
+      "total_seats": 60,
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "city_name": "Hyderabad"
+    },
+    {
+      "screen_id": 2,
+      "theater_id": 1,
+      "screen_name": "Screen 2 (Dolby Atmos)",
+      "screen_type": "Dolby Atmos 2D",
+      "total_seats": 60,
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "city_name": "Hyderabad"
+    },
+    {
+      "screen_id": 3,
+      "theater_id": 1,
+      "screen_name": "Screen 3 (Gold Class)",
+      "screen_type": "VIP Gold Class",
+      "total_seats": 36,
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "city_name": "Hyderabad"
+    },
+    {
+      "screen_id": 4,
+      "theater_id": 2,
+      "screen_name": "IMAX Laser Experience",
+      "screen_type": "IMAX Laser",
+      "total_seats": 60,
+      "theater_name": "CineSphere IMAX Forum Mall",
+      "city_name": "Hyderabad"
+    },
+    {
+      "screen_id": 5,
+      "theater_id": 2,
+      "screen_name": "Screen 2 (4DX)",
+      "screen_type": "4DX Motion",
+      "total_seats": 60,
+      "theater_name": "CineSphere IMAX Forum Mall",
+      "city_name": "Hyderabad"
+    },
+    {
+      "screen_id": 6,
+      "theater_id": 3,
+      "screen_name": "Screen 1 (Dolby Vision)",
+      "screen_type": "Dolby Vision 4K",
+      "total_seats": 60,
+      "theater_name": "CineSphere Riverside Gachibowli",
+      "city_name": "Hyderabad"
+    },
+    {
+      "screen_id": 7,
+      "theater_id": 4,
+      "screen_name": "Screen 1 (IMAX)",
+      "screen_type": "IMAX 3D",
+      "total_seats": 60,
+      "theater_name": "CineSphere Forum Koramangala",
+      "city_name": "Bengaluru"
+    },
+    {
+      "screen_id": 8,
+      "theater_id": 5,
+      "screen_name": "Screen 1 (PXL Atmos)",
+      "screen_type": "Dolby Atmos",
+      "total_seats": 60,
+      "theater_name": "CineSphere Orion Mall",
+      "city_name": "Bengaluru"
+    },
+    {
+      "screen_id": 9,
+      "theater_id": 6,
+      "screen_name": "Screen 1 (Luxe Insignia)",
+      "screen_type": "VIP Gold Class",
+      "total_seats": 36,
+      "theater_name": "CineSphere Palladium Luxe",
+      "city_name": "Mumbai"
+    }
+  ],
+  "seat_categories": [
+    {
+      "category_id": 1,
+      "category_name": "VIP Recliner Supreme",
+      "price_multiplier": 1.75,
+      "description": "Luxury leather motor recliners"
+    },
+    {
+      "category_id": 2,
+      "category_name": "Prime Gold",
+      "price_multiplier": 1.2,
+      "description": "Premium viewing angle with cushioned club seats"
+    },
+    {
+      "category_id": 3,
+      "category_name": "Classic Silver",
+      "price_multiplier": 1.0,
+      "description": "Standard comfortable cinema seating"
+    }
+  ],
+  "concession_items": [
+    {
+      "item_id": 1,
+      "item_name": "Jumbo Caramel Gourmet Popcorn",
+      "category": "Popcorn",
+      "price": 280.0
+    },
+    {
+      "item_id": 2,
+      "item_name": "Salted Butter Popcorn",
+      "category": "Popcorn",
+      "price": 220.0
+    },
+    {
+      "item_id": 3,
+      "item_name": "Loaded Cheese Nachos with Salsa",
+      "category": "Snacks",
+      "price": 240.0
+    },
+    {
+      "item_id": 4,
+      "item_name": "Fountain Cola 600ml",
+      "category": "Beverages",
+      "price": 150.0
+    },
+    {
+      "item_id": 5,
+      "item_name": "Iced Cold Coffee",
+      "category": "Beverages",
+      "price": 180.0
+    },
+    {
+      "item_id": 6,
+      "item_name": "Couple Movie Combo (Jumbo Popcorn + 2 Drinks)",
+      "category": "Combos",
+      "price": 480.0
+    }
+  ],
+  "bookings": [
+    {
+      "booking_id": 4,
+      "booking_reference": "CS-2026-25GSJZ",
+      "customer_id": 2,
+      "screening_id": 1,
+      "booking_date": "2026-10-31 18:33:19",
+      "total_amount": 860.0,
+      "booking_status": "CONFIRMED",
+      "customer_name": "Arjun Kumar",
+      "customer_email": "arjun@example.com",
+      "customer_phone": "9000000001",
+      "movie_title": "The Martian Extended Edition",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screening_date": "2026-11-01",
+      "slot_name": "Morning Show",
+      "start_time": "10:00:00",
+      "payment_method": "UPI",
+      "payment_status": "SUCCESS",
+      "transaction_reference": "TXN-UPI-4-8296074E",
+      "payment_time": "2026-10-31 18:33:19"
+    },
+    {
+      "booking_id": 3,
+      "booking_reference": "CS-2026-8803",
+      "customer_id": 4,
+      "screening_id": 1,
+      "booking_date": "2026-10-30 18:33:18",
+      "total_amount": 250.0,
+      "booking_status": "CANCELLED",
+      "customer_name": "Rahul Verma",
+      "customer_email": "rahul@example.com",
+      "customer_phone": "9000000003",
+      "movie_title": "The Martian Extended Edition",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screening_date": "2026-11-01",
+      "slot_name": "Morning Show",
+      "start_time": "10:00:00",
+      "payment_method": "UPI",
+      "payment_status": "REFUNDED",
+      "transaction_reference": "TXN-UPI-7718298803",
+      "payment_time": "2026-10-30 18:33:18"
+    },
+    {
+      "booking_id": 2,
+      "booking_reference": "CS-2026-9142",
+      "customer_id": 3,
+      "screening_id": 5,
+      "booking_date": "2026-10-31 16:33:18",
+      "total_amount": 450.0,
+      "booking_status": "CANCELLED",
+      "customer_name": "Priya Sharma",
+      "customer_email": "priya@example.com",
+      "customer_phone": "9000000002",
+      "movie_title": "Project Hail Mary",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screening_date": "2026-10-31",
+      "slot_name": "Matinee Show",
+      "start_time": "13:30:00",
+      "payment_method": "CARD",
+      "payment_status": "REFUNDED",
+      "transaction_reference": "TXN-CARD-8839109142",
+      "payment_time": "2026-10-31 16:33:18"
+    },
+    {
+      "booking_id": 1,
+      "booking_reference": "CS-2026-9081",
+      "customer_id": 2,
+      "screening_id": 2,
+      "booking_date": "2026-10-31 14:33:18",
+      "total_amount": 768.0,
+      "booking_status": "CONFIRMED",
+      "customer_name": "Arjun Kumar",
+      "customer_email": "arjun@example.com",
+      "customer_phone": "9000000001",
+      "movie_title": "The Martian Extended Edition",
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screening_date": "2026-10-31",
+      "slot_name": "Evening Prime",
+      "start_time": "17:15:00",
+      "payment_method": "UPI",
+      "payment_status": "SUCCESS",
+      "transaction_reference": "TXN-UPI-9823419081",
+      "payment_time": "2026-10-31 14:33:18"
+    }
+  ],
+  "booking_seats": [
+    {
+      "booking_seat_id": 6,
+      "booking_id": 4,
+      "seat_id": 32,
+      "ticket_price": 300.0,
+      "seat_status": "BOOKED",
+      "row_label": "D",
+      "seat_number": 2,
+      "category_name": "Prime Gold",
+      "ticket_code": "TCK-HYD-0004-02",
+      "ticket_status": "ACTIVE"
+    },
+    {
+      "booking_seat_id": 5,
+      "booking_id": 4,
+      "seat_id": 31,
+      "ticket_price": 300.0,
+      "seat_status": "BOOKED",
+      "row_label": "D",
+      "seat_number": 1,
+      "category_name": "Prime Gold",
+      "ticket_code": "TCK-HYD-0004-01",
+      "ticket_status": "ACTIVE"
+    },
+    {
+      "booking_seat_id": 4,
+      "booking_id": 3,
+      "seat_id": 22,
+      "ticket_price": 250.0,
+      "seat_status": "CANCELLED",
+      "row_label": "C",
+      "seat_number": 2,
+      "category_name": "Prime Gold",
+      "ticket_code": "TCK-HYD-8803-01",
+      "ticket_status": "CANCELLED"
+    },
+    {
+      "booking_seat_id": 3,
+      "booking_id": 2,
+      "seat_id": 5,
+      "ticket_price": 450.0,
+      "seat_status": "CANCELLED",
+      "row_label": "A",
+      "seat_number": 5,
+      "category_name": "VIP Recliner Supreme",
+      "ticket_code": "TCK-HYD-9142-01",
+      "ticket_status": "CANCELLED"
+    },
+    {
+      "booking_seat_id": 2,
+      "booking_id": 1,
+      "seat_id": 16,
+      "ticket_price": 384.0,
+      "seat_status": "BOOKED",
+      "row_label": "B",
+      "seat_number": 6,
+      "category_name": "Prime Gold",
+      "ticket_code": "TCK-HYD-9081-02",
+      "ticket_status": "ACTIVE"
+    },
+    {
+      "booking_seat_id": 1,
+      "booking_id": 1,
+      "seat_id": 15,
+      "ticket_price": 384.0,
+      "seat_status": "BOOKED",
+      "row_label": "B",
+      "seat_number": 5,
+      "category_name": "Prime Gold",
+      "ticket_code": "TCK-HYD-9081-01",
+      "ticket_status": "ACTIVE"
+    }
+  ],
+  "tickets": [
+    {
+      "ticket_id": 6,
+      "booking_seat_id": 6,
+      "ticket_code": "TCK-HYD-0004-02",
+      "issued_at": "2026-10-31 18:33:19",
+      "ticket_status": "ACTIVE",
+      "booking_reference": "CS-2026-25GSJZ",
+      "passenger_name": "Arjun Kumar"
+    },
+    {
+      "ticket_id": 5,
+      "booking_seat_id": 5,
+      "ticket_code": "TCK-HYD-0004-01",
+      "issued_at": "2026-10-31 18:33:19",
+      "ticket_status": "ACTIVE",
+      "booking_reference": "CS-2026-25GSJZ",
+      "passenger_name": "Arjun Kumar"
+    },
+    {
+      "ticket_id": 4,
+      "booking_seat_id": 4,
+      "ticket_code": "TCK-HYD-8803-01",
+      "issued_at": "2026-10-30 18:33:18",
+      "ticket_status": "CANCELLED",
+      "booking_reference": "CS-2026-8803",
+      "passenger_name": "Rahul Verma"
+    },
+    {
+      "ticket_id": 3,
+      "booking_seat_id": 3,
+      "ticket_code": "TCK-HYD-9142-01",
+      "issued_at": "2026-10-31 16:33:18",
+      "ticket_status": "CANCELLED",
+      "booking_reference": "CS-2026-9142",
+      "passenger_name": "Priya Sharma"
+    },
+    {
+      "ticket_id": 2,
+      "booking_seat_id": 2,
+      "ticket_code": "TCK-HYD-9081-02",
+      "issued_at": "2026-10-31 14:33:18",
+      "ticket_status": "ACTIVE",
+      "booking_reference": "CS-2026-9081",
+      "passenger_name": "Arjun Kumar"
+    },
+    {
+      "ticket_id": 1,
+      "booking_seat_id": 1,
+      "ticket_code": "TCK-HYD-9081-01",
+      "issued_at": "2026-10-31 14:33:18",
+      "ticket_status": "ACTIVE",
+      "booking_reference": "CS-2026-9081",
+      "passenger_name": "Arjun Kumar"
+    }
+  ],
+  "payments": [
+    {
+      "payment_id": 4,
+      "booking_id": 4,
+      "payment_time": "2026-10-31 18:33:19",
+      "amount": 860.0,
+      "payment_method": "UPI",
+      "payment_status": "SUCCESS",
+      "transaction_reference": "TXN-UPI-4-8296074E",
+      "booking_reference": "CS-2026-25GSJZ",
+      "booking_status": "CONFIRMED"
+    },
+    {
+      "payment_id": 3,
+      "booking_id": 3,
+      "payment_time": "2026-10-30 18:33:18",
+      "amount": 250.0,
+      "payment_method": "UPI",
+      "payment_status": "REFUNDED",
+      "transaction_reference": "TXN-UPI-7718298803",
+      "booking_reference": "CS-2026-8803",
+      "booking_status": "CANCELLED"
+    },
+    {
+      "payment_id": 2,
+      "booking_id": 2,
+      "payment_time": "2026-10-31 16:33:18",
+      "amount": 450.0,
+      "payment_method": "CARD",
+      "payment_status": "REFUNDED",
+      "transaction_reference": "TXN-CARD-8839109142",
+      "booking_reference": "CS-2026-9142",
+      "booking_status": "CANCELLED"
+    },
+    {
+      "payment_id": 1,
+      "booking_id": 1,
+      "payment_time": "2026-10-31 14:33:18",
+      "amount": 768.0,
+      "payment_method": "UPI",
+      "payment_status": "SUCCESS",
+      "transaction_reference": "TXN-UPI-9823419081",
+      "booking_reference": "CS-2026-9081",
+      "booking_status": "CONFIRMED"
+    }
+  ],
+  "booking_concessions": [
+    {
+      "booking_concession_id": 1,
+      "booking_id": 4,
+      "item_id": 1,
+      "quantity": 1,
+      "subtotal": 260.0,
+      "item_name": "Jumbo Caramel Gourmet Popcorn",
+      "category": "Popcorn",
+      "unit_price": 280.0
+    }
+  ],
+  "customers": [
+    {
+      "customer_id": 1,
+      "full_name": "Vikram Malhotra (Operations Manager)",
+      "email": "manager@cinesphere.com",
+      "phone": "9876543210",
+      "role": "MANAGER",
+      "created_at": "2026-10-31 13:03:18"
+    },
+    {
+      "customer_id": 2,
+      "full_name": "Arjun Kumar",
+      "email": "arjun@example.com",
+      "phone": "9000000001",
+      "role": "CUSTOMER",
+      "created_at": "2026-10-31 13:03:18"
+    },
+    {
+      "customer_id": 3,
+      "full_name": "Priya Sharma",
+      "email": "priya@example.com",
+      "phone": "9000000002",
+      "role": "CUSTOMER",
+      "created_at": "2026-10-31 13:03:18"
+    },
+    {
+      "customer_id": 4,
+      "full_name": "Rahul Verma",
+      "email": "rahul@example.com",
+      "phone": "9000000003",
+      "role": "CUSTOMER",
+      "created_at": "2026-10-31 13:03:18"
+    },
+    {
+      "customer_id": 5,
+      "full_name": "Sneha Reddy",
+      "email": "sneha@example.com",
+      "phone": "9000000004",
+      "role": "CUSTOMER",
+      "created_at": "2026-10-31 13:03:18"
+    }
+  ],
+  "slots": [
+    {
+      "slot_id": 1,
+      "slot_name": "Morning Show",
+      "start_time": "10:00:00"
+    },
+    {
+      "slot_id": 2,
+      "slot_name": "Matinee Show",
+      "start_time": "13:30:00"
+    },
+    {
+      "slot_id": 3,
+      "slot_name": "Evening Prime",
+      "start_time": "17:15:00"
+    },
+    {
+      "slot_id": 4,
+      "slot_name": "Night Show",
+      "start_time": "20:45:00"
+    },
+    {
+      "slot_id": 5,
+      "slot_name": "Late Night Show",
+      "start_time": "23:15:00"
+    }
+  ],
+  "genres": [
+    {
+      "genre_id": 1,
+      "genre_name": "Action"
+    },
+    {
+      "genre_id": 2,
+      "genre_name": "Sci-Fi"
+    },
+    {
+      "genre_id": 3,
+      "genre_name": "Drama"
+    },
+    {
+      "genre_id": 4,
+      "genre_name": "Adventure"
+    },
+    {
+      "genre_id": 5,
+      "genre_name": "Comedy"
+    },
+    {
+      "genre_id": 6,
+      "genre_name": "Thriller"
+    }
+  ],
+  "cities": [
+    {
+      "city_id": 1,
+      "city_name": "Hyderabad",
+      "state": "Telangana"
+    },
+    {
+      "city_id": 2,
+      "city_name": "Bengaluru",
+      "state": "Karnataka"
+    },
+    {
+      "city_id": 3,
+      "city_name": "Mumbai",
+      "state": "Maharashtra"
+    }
+  ]
+}

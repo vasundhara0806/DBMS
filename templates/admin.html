@@ -1,20 +1,49 @@
 {% extends 'base.html' %}
-{% block title %}Manager Admin Portal · CineSphere DBMS{% endblock %}
+{% block title %}Operations & Booking Audit Portal · CineSphere DBMS{% endblock %}
 
 {% block content %}
-<div class="panel" style="padding:28px;background:linear-gradient(135deg, rgba(39,28,68,0.9) 0%, rgba(20,16,38,0.95) 100%);border-color:var(--accent);">
-  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+<!-- Top Header & Live Date/Time Bar -->
+<div class="panel" style="padding:26px;background:linear-gradient(135deg, rgba(39,28,68,0.92) 0%, rgba(20,16,38,0.97) 100%);border-color:var(--accent);">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;">
     <div>
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
         <span class="badge badge-accent">Manager Portal</span>
-        <span class="badge badge-success">Live Database Connected</span>
+        <span class="badge badge-success"><span class="pulse-dot"></span> Live Database Connected</span>
+        <span class="badge" style="background:rgba(182,156,255,0.18);border:1px solid var(--accent);color:var(--accent-light);">
+          JSON Auto-Sync Active
+        </span>
       </div>
       <h1 style="font-size:2rem;margin:0 0 6px;">Operations & Booking Audit Portal</h1>
       <p class="muted text-sm" style="margin:0;">
-        Logged in as: <strong style="color:#ffffff;">{{ session.get('customer_name') }}</strong> · Role: <strong style="color:var(--accent-light);">{{ session.get('role') }}</strong>
+        Logged in as: <strong style="color:#ffffff;">{{ session.get('customer_name') }}</strong> · Role: <strong style="color:var(--accent-light);">{{ session.get('role') }}</strong> · Full CRUD & JSON Synchronization Active
       </p>
     </div>
-    <div style="display:flex;gap:10px;">
+
+    <!-- Live Date and Time Display -->
+    <div class="live-clock-card">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="pulse-dot"></span>
+          <span class="text-sm muted" style="text-transform:uppercase;font-size:0.75rem;letter-spacing:0.5px;">Live System Time</span>
+        </div>
+        <div id="liveDigitalClock" class="live-clock-time">--:--:-- --</div>
+      </div>
+      <div style="border-left:1px solid var(--panel-border);padding-left:16px;">
+        <div id="liveDigitalDate" class="live-clock-date">Loading date...</div>
+        <div class="text-sm muted" style="font-size:0.78rem;">
+          Last JSON Sync: <strong style="color:var(--accent-light);" id="lastSyncDisplay">{{ last_sync_time }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Action Header Buttons -->
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="{{ url_for('view_json', file='database') }}" class="btn btn-secondary btn-sm" target="_blank" title="Open Full-Screen Live JSON Viewer">
+        View Raw JSON
+      </a>
+      <a href="{{ url_for('admin_download_json', file_type='database') }}" class="btn btn-secondary btn-sm" title="Download database_state.json">
+        Download JSON
+      </a>
       <button onclick="window.print()" class="btn btn-secondary btn-sm">
         Print / Export Audit Report
       </button>
@@ -29,7 +58,7 @@
 <div class="kpi-grid">
   <div class="kpi-card">
     <div class="kpi-label">Gross Revenue</div>
-    <div class="kpi-val" style="color:var(--accent-light);">₹{{ '%.2f'|format(stats.total_revenue) }}</div>
+    <div class="kpi-val" style="color:var(--accent-light);">Rs. {{ '%.2f'|format(stats.total_revenue) }}</div>
     <div class="kpi-sub">Across all confirmed bookings</div>
   </div>
 
@@ -48,341 +77,208 @@
   <div class="kpi-card">
     <div class="kpi-label">Active Screenings</div>
     <div class="kpi-val">{{ stats.active_screenings }}</div>
-    <div class="kpi-sub">Scheduled across theaters</div>
+    <div class="kpi-sub">{{ all_screenings|length }} total scheduled in database</div>
   </div>
 
   <div class="kpi-card">
-    <div class="kpi-label">Theaters & Cities</div>
-    <div class="kpi-val">{{ stats.active_theaters }}</div>
-    <div class="kpi-sub">Operating in 3 metro hubs</div>
+    <div class="kpi-label">Movies Catalog</div>
+    <div class="kpi-val">{{ movies|length }}</div>
+    <div class="kpi-sub">Across {{ theaters|length }} theaters in {{ cities|length }} cities</div>
   </div>
 </div>
 
 <!-- ======================================================== -->
-<!-- SECTION 1: COMPREHENSIVE BOOKINGS AUDIT TABLE ("WHO BOOKED WHEN") -->
+<!-- TABBED NAVIGATION FOR ALL EDITING FEATURES & JSON SYNC   -->
 <!-- ======================================================== -->
-<div class="panel">
-  <div class="panel-header">
-    <div>
-      <h2 style="margin:0 0 4px;">Comprehensive Booking Records & Customer Audit</h2>
-      <p class="muted text-sm" style="margin:0;">
-        Detailed audit trail of who made bookings, exact timestamps, seats, screen, payment method, and ticket references.
-      </p>
-    </div>
-    <div style="color:var(--muted);font-size:0.85rem;">
-      Showing <strong style="color:#ffffff;">{{ bookings|length }}</strong> booking transactions
-    </div>
-  </div>
-
-  <!-- Search & Filter Controls -->
-  <form method="get" action="{{ url_for('admin_portal') }}" class="filter-bar">
-    <div style="flex:1;min-width:240px;">
-      <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Search by customer name, email, phone, or booking reference..." style="margin:0;width:100%;">
-    </div>
-
-    <div class="filter-group">
-      <select name="theater" onchange="this.form.submit()">
-        <option value="">All Theaters</option>
-        {% for t in theaters %}
-          <option value="{{ t.theater_id }}" {% if selected_theater == t.theater_id|string %}selected{% endif %}>
-            {{ t.theater_name }}
-          </option>
-        {% endfor %}
-      </select>
-
-      <select name="movie" onchange="this.form.submit()">
-        <option value="">All Movies</option>
-        {% for m in movies %}
-          <option value="{{ m.movie_id }}" {% if selected_movie == m.movie_id|string %}selected{% endif %}>
-            {{ m.title }}
-          </option>
-        {% endfor %}
-      </select>
-
-      <select name="status" onchange="this.form.submit()">
-        <option value="">All Statuses</option>
-        <option value="CONFIRMED" {% if selected_status == 'CONFIRMED' %}selected{% endif %}>Confirmed</option>
-        <option value="CANCELLED" {% if selected_status == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
-      </select>
-
-      <button type="submit" class="btn btn-sm">Filter</button>
-      {% if search_query or selected_theater or selected_movie or selected_status or selected_date %}
-        <a href="{{ url_for('admin_portal') }}" class="btn btn-secondary btn-sm">Reset</a>
-      {% endif %}
-    </div>
-  </form>
-
-  <!-- Detailed Audit Table -->
-  <div class="table-responsive">
-    <table>
-      <thead>
-        <tr>
-          <th>Ref / ID</th>
-          <th>When Booked</th>
-          <th>Who Booked (Customer)</th>
-          <th>Movie & Format</th>
-          <th>Theater & Screen</th>
-          <th>Show Date & Time</th>
-          <th>Seats & Tiers</th>
-          <th style="text-align:right;">Amount (₹)</th>
-          <th>Payment</th>
-          <th>Status</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for b in bookings %}
-          <tr>
-            <td>
-              <span style="font-family:monospace;font-weight:700;color:var(--accent-light);">
-                {{ b.booking_reference }}
-              </span>
-              <div class="muted text-sm">#{{ b.booking_id }}</div>
-            </td>
-
-            <td>
-              <strong style="color:#ffffff;">{{ b.booking_date[:10] }}</strong>
-              <div class="muted text-sm">{{ b.booking_date[11:19] }}</div>
-            </td>
-
-            <td>
-              <strong style="color:#ffffff;display:block;">{{ b.full_name }}</strong>
-              <span class="muted text-sm" style="display:block;">{{ b.email }}</span>
-              <span class="muted text-sm">{{ b.phone }}</span>
-            </td>
-
-            <td>
-              <strong>{{ b.title }}</strong>
-              <div class="muted text-sm">{{ b.dimension or '2D' }}</div>
-            </td>
-
-            <td>
-              <div>{{ b.theater_name }}</div>
-              <div class="muted text-sm">{{ b.screen_name }} ({{ b.city_name }})</div>
-            </td>
-
-            <td>
-              <div>{{ b.screening_date }}</div>
-              <div class="muted text-sm">{{ b.slot_name }} ({{ b.start_time[:5] if b.start_time else '' }})</div>
-            </td>
-
-            <td>
-              {% for s in b.seat_list %}
-                <span class="badge {% if 'Recliner' in s.category_name %}badge-vip{% else %}badge-accent{% endif %}" style="margin:2px 1px;">
-                  {{ s.row_label }}{{ s.seat_number }}
-                </span>
-              {% endfor %}
-            </td>
-
-            <td style="text-align:right;font-weight:700;color:var(--accent-light);">
-              ₹{{ '%.2f'|format(b.total_amount) }}
-            </td>
-
-            <td>
-              <span class="badge">{{ b.payment_method or 'UPI' }}</span>
-              <div class="muted text-sm" style="font-family:monospace;font-size:0.75rem;">
-                {{ b.transaction_reference or 'TXN-SIMULATED' }}
-              </div>
-            </td>
-
-            <td>
-              {% if b.booking_status == 'CONFIRMED' %}
-                <span class="badge badge-success">Confirmed</span>
-              {% else %}
-                <span class="badge badge-danger">Cancelled</span>
-              {% endif %}
-            </td>
-
-            <td>
-              <div style="display:flex;gap:6px;">
-                <a href="{{ url_for('confirmation', booking_id=b.booking_id) }}" class="btn btn-secondary btn-sm" target="_blank" title="View Full Ticket Invoice">
-                  View
-                </a>
-                {% if b.booking_status == 'CONFIRMED' %}
-                  <form method="post" action="{{ url_for('cancel_booking', booking_id=b.booking_id) }}" onsubmit="return confirm('Manager override: Cancel and refund this booking?')" style="margin:0;">
-                    <button type="submit" class="btn btn-danger btn-sm" title="Cancel Booking">
-                      Refund
-                    </button>
-                  </form>
-                {% endif %}
-              </div>
-            </td>
-          </tr>
-        {% else %}
-          <tr>
-            <td colspan="11" style="text-align:center;padding:36px;color:var(--muted);">
-              No booking records found matching current filter parameters.
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+<div class="admin-tabs" id="adminTabsBar">
+  <button class="admin-tab-btn {% if active_tab == 'bookings' or not active_tab %}active{% endif %}" onclick="switchAdminTab('bookings', this)">
+    Bookings & Audit Trail
+  </button>
+  <button class="admin-tab-btn {% if active_tab == 'json' %}active{% endif %}" onclick="switchAdminTab('json', this)" style="color:var(--accent-light);font-weight:700;">
+    <span class="badge badge-accent" style="font-size:0.7rem;padding:2px 6px;">Live</span> Live JSON File Inspector
+  </button>
+  <button class="admin-tab-btn {% if active_tab == 'movies' %}active{% endif %}" onclick="switchAdminTab('movies', this)">
+    Movies Management ({{ movies|length }})
+  </button>
+  <button class="admin-tab-btn {% if active_tab == 'screenings' %}active{% endif %}" onclick="switchAdminTab('screenings', this)">
+    Showtimes & Schedule ({{ all_screenings|length }})
+  </button>
+  <button class="admin-tab-btn {% if active_tab == 'theaters' %}active{% endif %}" onclick="switchAdminTab('theaters', this)">
+    Theaters & Screens ({{ theaters|length }})
+  </button>
+  <button class="admin-tab-btn {% if active_tab == 'concessions' %}active{% endif %}" onclick="switchAdminTab('concessions', this)">
+    Food & Concessions ({{ concession_items|length }})
+  </button>
+  <button class="admin-tab-btn {% if active_tab == 'pricing' %}active{% endif %}" onclick="switchAdminTab('pricing', this)">
+    Seat Tiers & Pricing Multipliers
+  </button>
+  <button class="admin-tab-btn {% if active_tab == 'occupancy' %}active{% endif %}" onclick="switchAdminTab('occupancy', this)">
+    Auditorium Seat Occupancy Inspector
+  </button>
+  <button class="admin-tab-btn {% if active_tab == 'analytics' %}active{% endif %}" onclick="switchAdminTab('analytics', this)">
+    Financial Analytics
+  </button>
 </div>
 
 <!-- ======================================================== -->
-<!-- SECTION 2: INTERACTIVE SCREEN OCCUPANCY INSPECTOR -->
+<!-- TAB 1: COMPREHENSIVE BOOKINGS AUDIT TABLE ("WHO BOOKED WHEN") -->
 <!-- ======================================================== -->
-<div class="panel">
-  <div class="panel-header">
-    <div>
-      <h2 style="margin:0 0 4px;">Auditorium Seat Occupancy Inspector</h2>
-      <p class="muted text-sm" style="margin:0;">
-        Select any scheduled screening to view live seat availability, occupancy rates, and passenger details.
-      </p>
-    </div>
-    <div style="min-width:320px;">
-      <select id="screeningSelector" onchange="loadScreeningOccupancy(this.value)" style="margin:0;">
-        <option value="">-- Choose a Scheduled Show to Inspect --</option>
-        {% for sc in screenings %}
-          <option value="{{ sc.screening_id }}">
-            {{ sc.screening_date }} · {{ sc.start_time[:5] if sc.start_time else '' }} · {{ sc.title }} ({{ sc.theater_name }} - {{ sc.screen_name }})
-          </option>
-        {% endfor %}
-      </select>
-    </div>
-  </div>
-
-  <div id="occupancyContainer" style="display:none;background:rgba(19,15,37,0.8);border-radius:12px;padding:24px;border:1px solid var(--panel-border);">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
-      <div>
-        <h3 id="occMovieTitle" style="margin:0 0 4px;font-size:1.25rem;color:#ffffff;"></h3>
-        <p id="occScreenDetails" class="muted text-sm" style="margin:0;"></p>
-      </div>
-      <div style="display:flex;gap:16px;align-items:center;">
-        <div style="text-align:right;">
-          <div class="muted text-sm">Occupancy Rate:</div>
-          <div id="occRateDisplay" class="price" style="font-size:1.4rem;">0%</div>
-        </div>
-        <div id="occCountBadge" class="badge badge-accent" style="padding:6px 12px;font-size:0.85rem;"></div>
-      </div>
-    </div>
-
-    <!-- Seat Map Visualization for Manager -->
-    <div style="text-align:center;margin:24px 0 16px;">
-      <div class="screen-indicator" style="width:60%;"></div>
-      <div class="screen-text">SCREEN</div>
-      <div id="occSeatsGrid" style="display:flex;flex-direction:column;gap:6px;align-items:center;"></div>
-    </div>
-
-    <!-- Selected Seat Details Card (Hover/Click) -->
-    <div id="seatDetailBox" style="margin-top:20px;padding:16px;background:rgba(28,23,50,0.9);border-radius:10px;border:1px solid var(--panel-border);display:none;">
-      <h4 style="margin:0 0 6px;color:var(--accent-light);" id="seatDetailTitle">Seat Info</h4>
-      <div id="seatDetailContent" class="text-sm"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ======================================================== -->
-<!-- SECTION 3: SCHEDULE MANAGEMENT & ANALYTICS -->
-<!-- ======================================================== -->
-<div class="grid" style="grid-template-columns:1fr 1fr;gap:24px;">
-  <!-- Schedule New Showtimes -->
+<div id="tab-bookings" class="tab-content {% if active_tab == 'bookings' or not active_tab %}active{% endif %}">
   <div class="panel">
-    <h2>Schedule New Showtime</h2>
-    <p class="muted text-sm" style="margin-bottom:18px;">
-      Add a new movie screening to any theater screen and time slot.
-    </p>
+    <div class="panel-header">
+      <div>
+        <h2 style="margin:0 0 4px;">Comprehensive Booking Records & Customer Audit</h2>
+        <p class="muted text-sm" style="margin:0;">
+          Detailed audit trail of who made bookings, exact timestamps, seats, screen, payment method, and ticket references.
+        </p>
+      </div>
+      <div style="color:var(--muted);font-size:0.85rem;">
+        Showing <strong style="color:#ffffff;">{{ bookings|length }}</strong> booking transactions
+      </div>
+    </div>
 
-    <form method="post" action="{{ url_for('admin_add_screening') }}">
-      <label>Movie
-        <select name="movie_id" required>
-          {% for m in movies %}
-            <option value="{{ m.movie_id }}">{{ m.title }} ({{ m.language }})</option>
-          {% endfor %}
-        </select>
-      </label>
+    <!-- Search & Filter Controls -->
+    <form method="get" action="{{ url_for('admin_portal') }}" class="filter-bar">
+      <input type="hidden" name="tab" value="bookings">
+      <div style="flex:1;min-width:240px;">
+        <input type="text" name="q" value="{{ search_query or '' }}" placeholder="Search by customer name, email, phone, or booking reference..." style="margin:0;width:100%;">
+      </div>
 
-      <label>Theater & Screen
-        <select name="screen_id" required>
-          {% for sc in screens %}
-            <option value="{{ sc.screen_id }}">
-              {{ sc.theater_name }} · {{ sc.screen_name }} ({{ sc.screen_type }})
+      <div class="filter-group">
+        <select name="theater" onchange="this.form.submit()">
+          <option value="">All Theaters</option>
+          {% for t in theaters %}
+            <option value="{{ t.theater_id }}" {% if selected_theater == t.theater_id|string %}selected{% endif %}>
+              {{ t.theater_name }}
             </option>
           {% endfor %}
         </select>
-      </label>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-        <label>Time Slot
-          <select name="slot_id" required>
-            {% for sl in slots %}
-              <option value="{{ sl.slot_id }}">{{ sl.slot_name }} ({{ sl.start_time[:5] }})</option>
-            {% endfor %}
-          </select>
-        </label>
-
-        <label>Date
-          <input type="date" name="screening_date" value="{{ date_filter or '' }}" required>
-        </label>
-      </div>
-
-      <label>Base Ticket Price (₹)
-        <input type="number" step="10" name="base_price" value="250.00" required>
-      </label>
-
-      <button type="submit" class="btn" style="width:100%;margin-top:8px;">
-        Schedule Showtime
-      </button>
-    </form>
-  </div>
-
-  <!-- Revenue Breakdown Tables -->
-  <div class="panel">
-    <h2>Financial Analytics</h2>
-    <p class="muted text-sm" style="margin-bottom:16px;">
-      Revenue aggregated by Movie and Multiplex.
-    </p>
-
-    <h3 style="font-size:0.95rem;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">
-      Revenue by Movie:
-    </h3>
-    <div class="table-responsive" style="margin-bottom:20px;">
-      <table>
-        <thead>
-          <tr>
-            <th>Movie</th>
-            <th>Bookings</th>
-            <th>Tickets</th>
-            <th style="text-align:right;">Revenue</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for rm in revenue_by_movie %}
-            <tr>
-              <td><strong>{{ rm.title }}</strong></td>
-              <td>{{ rm.total_bookings }}</td>
-              <td>{{ rm.total_tickets }}</td>
-              <td style="text-align:right;color:var(--accent-light);font-weight:700;">
-                ₹{{ '%.2f'|format(rm.gross_revenue) }}
-              </td>
-            </tr>
+        <select name="movie" onchange="this.form.submit()">
+          <option value="">All Movies</option>
+          {% for m in movies %}
+            <option value="{{ m.movie_id }}" {% if selected_movie == m.movie_id|string %}selected{% endif %}>
+              {{ m.title }}
+            </option>
           {% endfor %}
-        </tbody>
-      </table>
-    </div>
+        </select>
 
-    <h3 style="font-size:0.95rem;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">
-      Revenue by Theater:
-    </h3>
+        <select name="status" onchange="this.form.submit()">
+          <option value="">All Statuses</option>
+          <option value="CONFIRMED" {% if selected_status == 'CONFIRMED' %}selected{% endif %}>Confirmed</option>
+          <option value="CANCELLED" {% if selected_status == 'CANCELLED' %}selected{% endif %}>Cancelled</option>
+        </select>
+
+        <button type="submit" class="btn btn-sm">Filter</button>
+        {% if search_query or selected_theater or selected_movie or selected_status or selected_date %}
+          <a href="{{ url_for('admin_portal', tab='bookings') }}" class="btn btn-secondary btn-sm">Reset</a>
+        {% endif %}
+      </div>
+    </form>
+
+    <!-- Detailed Audit Table -->
     <div class="table-responsive">
       <table>
         <thead>
           <tr>
-            <th>Theater</th>
-            <th>City</th>
-            <th>Bookings</th>
-            <th style="text-align:right;">Revenue</th>
+            <th>Ref / ID</th>
+            <th>When Booked</th>
+            <th>Who Booked (Customer)</th>
+            <th>Movie & Format</th>
+            <th>Theater & Screen</th>
+            <th>Show Date & Time</th>
+            <th>Seats & Tiers</th>
+            <th style="text-align:right;">Amount (Rs.)</th>
+            <th>Payment</th>
+            <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {% for rt in revenue_by_theater %}
+          {% for b in bookings %}
             <tr>
-              <td><strong>{{ rt.theater_name }}</strong></td>
-              <td>{{ rt.city_name }}</td>
-              <td>{{ rt.total_bookings }}</td>
-              <td style="text-align:right;color:var(--accent-light);font-weight:700;">
-                ₹{{ '%.2f'|format(rt.gross_revenue) }}
+              <td>
+                <span style="font-family:monospace;font-weight:700;color:var(--accent-light);">
+                  {{ b.booking_reference }}
+                </span>
+                <div class="muted text-sm">#{{ b.booking_id }}</div>
+              </td>
+
+              <td>
+                <strong style="color:#ffffff;">{{ b.booking_date[:10] }}</strong>
+                <div class="muted text-sm">{{ b.booking_date[11:19] }}</div>
+              </td>
+
+              <td>
+                <strong style="color:#ffffff;display:block;">{{ b.full_name }}</strong>
+                <span class="muted text-sm" style="display:block;">{{ b.email }}</span>
+                <span class="muted text-sm">{{ b.phone }}</span>
+              </td>
+
+              <td>
+                <strong>{{ b.title }}</strong>
+                <div class="muted text-sm">{{ b.dimension or '2D' }}</div>
+              </td>
+
+              <td>
+                <div>{{ b.theater_name }}</div>
+                <div class="muted text-sm">{{ b.screen_name }} ({{ b.city_name }})</div>
+              </td>
+
+              <td>
+                <div>{{ b.screening_date }}</div>
+                <div class="muted text-sm">{{ b.slot_name }} ({{ b.start_time[:5] if b.start_time else '' }})</div>
+              </td>
+
+              <td>
+                {% for s in b.seat_list %}
+                  <span class="badge {% if 'Recliner' in s.category_name %}badge-vip{% else %}badge-accent{% endif %}" style="margin:2px 1px;">
+                    {{ s.row_label }}{{ s.seat_number }}
+                  </span>
+                {% endfor %}
+              </td>
+
+              <td style="text-align:right;font-weight:700;color:var(--accent-light);">
+                Rs. {{ '%.2f'|format(b.total_amount) }}
+              </td>
+
+              <td>
+                <span class="badge">{{ b.payment_method or 'UPI' }}</span>
+                <div class="muted text-sm" style="font-family:monospace;font-size:0.75rem;">
+                  {{ b.transaction_reference or 'TXN-SIMULATED' }}
+                </div>
+              </td>
+
+              <td>
+                {% if b.booking_status == 'CONFIRMED' %}
+                  <span class="badge badge-success">Confirmed</span>
+                {% else %}
+                  <span class="badge badge-danger">Cancelled</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <a href="{{ url_for('confirmation', booking_id=b.booking_id) }}" class="btn btn-secondary btn-sm" target="_blank" title="View Full Ticket Invoice">
+                    View
+                  </a>
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="openBookingStatusModal({{ b.booking_id }}, '{{ b.booking_reference }}', '{{ b.booking_status }}')" title="Change Status">
+                    Edit Status
+                  </button>
+                  {% if b.booking_status == 'CONFIRMED' %}
+                    <form method="post" action="{{ url_for('cancel_booking', booking_id=b.booking_id) }}" onsubmit="return confirm('Manager override: Cancel and refund this booking?')" style="margin:0;">
+                      <button type="submit" class="btn btn-danger btn-sm" title="Cancel Booking">
+                        Refund
+                      </button>
+                    </form>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="11" style="text-align:center;padding:36px;color:var(--muted);">
+                No booking records found matching current filter parameters.
               </td>
             </tr>
           {% endfor %}
@@ -392,8 +288,1220 @@
   </div>
 </div>
 
+<!-- ======================================================== -->
+<!-- TAB 2: LIVE JSON FILE INSPECTOR & CHANGE TRACKER        -->
+<!-- ======================================================== -->
+<div id="tab-json" class="tab-content {% if active_tab == 'json' %}active{% endif %}">
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+          <h2 style="margin:0;">Live JSON Database & Mutation Tracker</h2>
+          <span class="badge badge-accent">Synchronized on Every Action</span>
+        </div>
+        <p class="muted text-sm" style="margin:0;">
+          Inspect the live JSON file generated whenever any insertion, update, or deletion takes place in the system.
+        </p>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <form method="post" action="{{ url_for('admin_sync_json_now') }}" style="margin:0;">
+          <button type="submit" class="btn btn-sm">
+            Force Sync to JSON Now
+          </button>
+        </form>
+        <a href="{{ url_for('admin_download_json', file_type='database') }}" class="btn btn-secondary btn-sm">
+          Download database_state.json
+        </a>
+        <a href="{{ url_for('view_json', file='database') }}" class="btn btn-secondary btn-sm" target="_blank">
+          Open Standalone Inspector
+        </a>
+      </div>
+    </div>
+
+    <!-- JSON Controls Bar -->
+    <div style="background:rgba(18,14,35,0.8);padding:14px;border-radius:8px;border:1px solid var(--panel-border);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="text-sm muted">Inspect View:</span>
+        <select id="adminJsonViewSelector" onchange="loadAdminJsonView(this.value)" style="margin:0;padding:6px 12px;font-size:0.85rem;">
+          <option value="database">Full Database Snapshot (database_state.json)</option>
+          <option value="activity">Activity & Mutation Log (activity_log.json)</option>
+          <option value="movies">Table: Movies</option>
+          <option value="screenings">Table: Screenings</option>
+          <option value="bookings">Table: Bookings</option>
+          <option value="theaters">Table: Theaters</option>
+          <option value="concession_items">Table: Concessions (F&B)</option>
+          <option value="seat_categories">Table: Seat Tiers</option>
+          <option value="customers">Table: Customers</option>
+        </select>
+      </div>
+
+      <div style="flex:1;max-width:360px;min-width:200px;">
+        <input type="text" id="adminJsonSearchBox" placeholder="Search keywords in JSON..." onkeyup="filterAdminJson()" style="margin:0;width:100%;font-size:0.82rem;padding:6px 10px;">
+      </div>
+
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="copyAdminJson()" id="copyAdminJsonBtn">
+          Copy JSON
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="reloadAdminJson()">
+          Live Refresh
+        </button>
+      </div>
+    </div>
+
+    <!-- Live JSON Code Box -->
+    <div style="background:#0c0918;border:1px solid var(--panel-border);border-radius:8px;overflow:hidden;position:relative;">
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#17112c;padding:8px 14px;border-bottom:1px solid var(--panel-border);font-size:0.8rem;color:var(--muted);">
+        <span id="adminJsonInfoLabel">File: <strong>database_state.json</strong></span>
+        <span id="adminJsonMetaLabel">Loading live JSON data...</span>
+      </div>
+      <pre id="adminJsonPre" style="margin:0;padding:16px;max-height:550px;overflow:auto;font-family:Consolas, Monaco, monospace;font-size:0.82rem;line-height:1.55;color:#e6ddff;"><code id="adminJsonCode">Fetching live database JSON...</code></pre>
+    </div>
+
+    <!-- Live Chronological Activity Log Table -->
+    <div style="margin-top:24px;">
+      <h3 style="margin:0 0 8px;">Recent Live Mutation & Insertion Audit Log</h3>
+      <p class="muted text-sm" style="margin:0 0 12px;">Every single database modification is logged here with exact timestamp and action details.</p>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:70px;">#ID</th>
+              <th style="width:160px;">Date & Time</th>
+              <th style="width:180px;">Action</th>
+              <th style="width:120px;">Table</th>
+              <th style="width:160px;">Initiator</th>
+              <th>Operation Summary</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for act in activity_log %}
+              <tr>
+                <td style="font-family:monospace;color:var(--muted);">#{{ act.id }}</td>
+                <td>
+                  <strong style="color:#ffffff;">{{ act.timestamp[:10] }}</strong>
+                  <div class="muted text-sm">{{ act.timestamp[11:] }}</div>
+                </td>
+                <td>
+                  <span class="badge {% if 'INSERT' in act.action or 'CREATE' in act.action %}badge-success{% elif 'DELETE' in act.action or 'CANCEL' in act.action %}badge-danger{% else %}badge-accent{% endif %}">
+                    {{ act.action }}
+                  </span>
+                </td>
+                <td><code style="color:var(--accent-light);">{{ act.table }}</code></td>
+                <td><strong style="color:#ffffff;">{{ act.user }}</strong></td>
+                <td>{{ act.summary }}</td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="6" style="text-align:center;padding:24px;color:var(--muted);">
+                  No activities recorded yet.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- TAB 3: MOVIES MANAGEMENT & EDITING                      -->
+<!-- ======================================================== -->
+<div id="tab-movies" class="tab-content {% if active_tab == 'movies' %}active{% endif %}">
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <h2 style="margin:0 0 4px;">Movie Titles & Catalog Management</h2>
+        <p class="muted text-sm" style="margin:0;">
+          Add new releases, edit movie synopsis, genres, duration, censor rating, and projection format.
+        </p>
+      </div>
+      <div>
+        <button type="button" class="btn btn-sm" onclick="openAddMovieModal()">
+          + Add New Movie
+        </button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>Language & Rating</th>
+            <th>Duration</th>
+            <th>Release Date</th>
+            <th>Dimension</th>
+            <th>Genres</th>
+            <th>Synopsis</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in movies %}
+            <tr>
+              <td style="font-family:monospace;color:var(--accent-light);">#{{ m.movie_id }}</td>
+              <td><strong style="color:#ffffff;font-size:1.05rem;">{{ m.title }}</strong></td>
+              <td>
+                <span class="badge badge-accent">{{ m.rating or 'UA' }}</span>
+                <span class="badge">{{ m.language }}</span>
+              </td>
+              <td>{{ m.duration_minutes }} mins</td>
+              <td>{{ m.release_date or 'N/A' }}</td>
+              <td><span class="badge">{{ m.dimension or '2D' }}</span></td>
+              <td style="color:var(--muted);font-size:0.85rem;">{{ m.genres or 'Action' }}</td>
+              <td style="max-width:240px;color:var(--muted);font-size:0.82rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                {{ m.synopsis }}
+              </td>
+              <td style="text-align:right;">
+                <div style="display:flex;gap:6px;justify-content:flex-end;">
+                  <button type="button" class="btn btn-secondary btn-sm"
+                    onclick='openEditMovieModal({{ m|tojson }})'>
+                    Edit Movie
+                  </button>
+                  <form method="post" action="{{ url_for('admin_delete_movie', movie_id=m.movie_id) }}" onsubmit="return confirm('Are you sure you want to delete movie \'{{ m.title }}\'?')" style="margin:0;">
+                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- TAB 4: SHOWTIMES & SCREENINGS SCHEDULE                  -->
+<!-- ======================================================== -->
+<div id="tab-screenings" class="tab-content {% if active_tab == 'screenings' %}active{% endif %}">
+  <div class="grid" style="grid-template-columns:1fr 2fr;gap:24px;">
+    <!-- Schedule Form -->
+    <div class="panel">
+      <h2>Schedule New Showtime</h2>
+      <p class="muted text-sm" style="margin-bottom:18px;">
+        Add a new movie screening to any theater screen and time slot.
+      </p>
+
+      <form method="post" action="{{ url_for('admin_add_screening') }}">
+        <label>Movie
+          <select name="movie_id" required>
+            {% for m in movies %}
+              <option value="{{ m.movie_id }}">{{ m.title }} ({{ m.language }})</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label>Theater & Screen
+          <select name="screen_id" required>
+            {% for sc in screens %}
+              <option value="{{ sc.screen_id }}">
+                {{ sc.theater_name }} · {{ sc.screen_name }} ({{ sc.screen_type }})
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <label>Time Slot
+            <select name="slot_id" required>
+              {% for sl in slots %}
+                <option value="{{ sl.slot_id }}">{{ sl.slot_name }} ({{ sl.start_time[:5] }})</option>
+              {% endfor %}
+            </select>
+          </label>
+
+          <label>Screening Date
+            <input type="date" name="screening_date" value="{{ selected_date or '' }}" required>
+          </label>
+        </div>
+
+        <label>Base Ticket Price (Rs.)
+          <input type="number" step="10" name="base_price" value="250.00" required>
+        </label>
+
+        <button type="submit" class="btn" style="width:100%;margin-top:8px;">
+          Schedule Showtime
+        </button>
+      </form>
+    </div>
+
+    <!-- Screenings List with Edit Options -->
+    <div class="panel">
+      <div class="panel-header">
+        <div>
+          <h2 style="margin:0 0 4px;">Existing Showtimes & Schedules</h2>
+          <p class="muted text-sm" style="margin:0;">Edit dates, time slots, base prices, or toggle status.</p>
+        </div>
+        <div class="muted text-sm">{{ all_screenings|length }} Total Screenings</div>
+      </div>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Movie</th>
+              <th>Theater & Screen</th>
+              <th>Date & Slot</th>
+              <th style="text-align:right;">Base Price</th>
+              <th>Status</th>
+              <th style="text-align:right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for sc in all_screenings %}
+              <tr>
+                <td style="font-family:monospace;color:var(--accent-light);">#{{ sc.screening_id }}</td>
+                <td><strong>{{ sc.title }}</strong></td>
+                <td>
+                  <div>{{ sc.theater_name }}</div>
+                  <div class="muted text-sm">{{ sc.screen_name }}</div>
+                </td>
+                <td>
+                  <strong style="color:#ffffff;">{{ sc.screening_date }}</strong>
+                  <div class="muted text-sm">{{ sc.slot_name }} ({{ sc.start_time[:5] if sc.start_time else '' }})</div>
+                </td>
+                <td style="text-align:right;color:var(--accent-light);font-weight:700;">
+                  Rs. {{ '%.2f'|format(sc.base_price) }}
+                </td>
+                <td>
+                  {% if sc.status == 'SCHEDULED' %}
+                    <span class="badge badge-success">Scheduled</span>
+                  {% elif sc.status == 'CANCELLED' %}
+                    <span class="badge badge-danger">Cancelled</span>
+                  {% else %}
+                    <span class="badge">{{ sc.status }}</span>
+                  {% endif %}
+                </td>
+                <td style="text-align:right;">
+                  <div style="display:flex;gap:6px;justify-content:flex-end;">
+                    <button type="button" class="btn btn-secondary btn-sm"
+                      onclick='openEditScreeningModal({{ sc|tojson }})'>
+                      Edit
+                    </button>
+                    <form method="post" action="{{ url_for('admin_delete_screening', screening_id=sc.screening_id) }}" onsubmit="return confirm('Delete showtime #{{ sc.screening_id }}?')" style="margin:0;">
+                      <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- TAB 5: THEATERS & SCREENS MANAGEMENT                   -->
+<!-- ======================================================== -->
+<div id="tab-theaters" class="tab-content {% if active_tab == 'theaters' %}active{% endif %}">
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <h2 style="margin:0 0 4px;">Theaters & Auditoriums Management</h2>
+        <p class="muted text-sm" style="margin:0;">Edit theater names, city locations, addresses, screen specifications, and audio-visual formats.</p>
+      </div>
+      <div>
+        <button type="button" class="btn btn-sm" onclick="openAddTheaterModal()">
+          + Add New Theater
+        </button>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns:1fr 1fr;gap:20px;">
+      <!-- Theaters List -->
+      <div>
+        <h3 style="margin-bottom:12px;color:var(--accent-light);">Registered Theaters ({{ theaters|length }})</h3>
+        {% for t in theaters %}
+          <div style="background:rgba(20,16,38,0.85);border:1px solid var(--panel-border);border-radius:10px;padding:16px;margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+              <div>
+                <h4 style="margin:0 0 2px;font-size:1.15rem;color:#ffffff;">{{ t.theater_name }}</h4>
+                <div class="muted text-sm">{{ t.location_area }} · {{ t.city_name }} ({{ t.state }})</div>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" onclick='openEditTheaterModal({{ t|tojson }})'>
+                Edit Theater
+              </button>
+            </div>
+            <div class="text-sm" style="color:var(--muted);margin-bottom:8px;">
+              Address: {{ t.address }}
+            </div>
+            <div style="font-size:0.8rem;color:var(--accent-light);">
+              Screens: {{ t.screen_count }} active auditorium(s)
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+
+      <!-- Screens List -->
+      <div>
+        <h3 style="margin-bottom:12px;color:var(--accent-light);">Auditorium Screens ({{ screens|length }})</h3>
+        {% for sc in screens %}
+          <div style="background:rgba(20,16,38,0.85);border:1px solid var(--panel-border);border-radius:10px;padding:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <strong style="color:#ffffff;display:block;">{{ sc.screen_name }}</strong>
+              <span class="muted text-sm">{{ sc.theater_name }} · Format: <span class="badge badge-accent">{{ sc.screen_type }}</span> · Seats: {{ sc.total_seats }}</span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick='openEditScreenModal({{ sc|tojson }})'>
+              Edit Screen
+            </button>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- TAB 6: CONCESSIONS (FOOD & BEVERAGES) MANAGEMENT       -->
+<!-- ======================================================== -->
+<div id="tab-concessions" class="tab-content {% if active_tab == 'concessions' %}active{% endif %}">
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <h2 style="margin:0 0 4px;">Food & Beverage Concession Items</h2>
+        <p class="muted text-sm" style="margin:0;">Manage cinema snacks, popcorn, beverages, and combo pricing offered during ticket checkout.</p>
+      </div>
+      <div>
+        <button type="button" class="btn btn-sm" onclick="openAddConcessionModal()">
+          + Add Concession Item
+        </button>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Item Name</th>
+            <th>Category</th>
+            <th style="text-align:right;">Price (Rs.)</th>
+            <th style="text-align:right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ci in concession_items %}
+            <tr>
+              <td style="font-family:monospace;color:var(--accent-light);">#{{ ci.item_id }}</td>
+              <td><strong style="color:#ffffff;font-size:1.05rem;">{{ ci.item_name }}</strong></td>
+              <td><span class="badge">{{ ci.category }}</span></td>
+              <td style="text-align:right;color:var(--accent-light);font-weight:700;font-size:1.05rem;">
+                Rs. {{ '%.2f'|format(ci.price) }}
+              </td>
+              <td style="text-align:right;">
+                <div style="display:flex;gap:6px;justify-content:flex-end;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick='openEditConcessionModal({{ ci|tojson }})'>
+                    Edit Item
+                  </button>
+                  <form method="post" action="{{ url_for('admin_delete_concession', item_id=ci.item_id) }}" onsubmit="return confirm('Delete concession item \'{{ ci.item_name }}\'?')" style="margin:0;">
+                    <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- TAB 7: SEAT TIERS & PRICING MULTIPLIERS                -->
+<!-- ======================================================== -->
+<div id="tab-pricing" class="tab-content {% if active_tab == 'pricing' %}active{% endif %}">
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <h2 style="margin:0 0 4px;">Seat Categories & Dynamic Pricing Multipliers</h2>
+        <p class="muted text-sm" style="margin:0;">Edit pricing multipliers and descriptions for VIP Recliners, Prime Gold, and Classic Silver seating tiers.</p>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table>
+        <thead>
+          <tr>
+            <th>Category ID</th>
+            <th>Tier Name</th>
+            <th>Price Multiplier</th>
+            <th>Description & Features</th>
+            <th>Example (on Rs. 250 Base)</th>
+            <th style="text-align:right;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cat in seat_categories %}
+            <tr>
+              <td style="font-family:monospace;color:var(--accent-light);">#{{ cat.category_id }}</td>
+              <td>
+                <span class="badge {% if 'Recliner' in cat.category_name %}badge-vip{% elif 'Gold' in cat.category_name %}badge-accent{% else %}badge{% endif %}" style="font-size:0.95rem;padding:6px 12px;">
+                  {{ cat.category_name }}
+                </span>
+              </td>
+              <td style="font-size:1.2rem;font-weight:800;color:var(--accent-light);">
+                {{ '%.2f'|format(cat.price_multiplier) }}x
+              </td>
+              <td style="color:var(--muted);max-width:320px;">
+                {{ cat.description or 'Standard seating' }}
+              </td>
+              <td style="color:#ffffff;font-weight:600;">
+                Rs. {{ '%.2f'|format(250 * cat.price_multiplier) }}
+              </td>
+              <td style="text-align:right;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick='openEditSeatCategoryModal({{ cat|tojson }})'>
+                  Edit Tier Multiplier
+                </button>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- TAB 8: AUDITORIUM SEAT OCCUPANCY INSPECTOR              -->
+<!-- ======================================================== -->
+<div id="tab-occupancy" class="tab-content {% if active_tab == 'occupancy' %}active{% endif %}">
+  <div class="panel">
+    <div class="panel-header">
+      <div>
+        <h2 style="margin:0 0 4px;">Auditorium Seat Occupancy Inspector</h2>
+        <p class="muted text-sm" style="margin:0;">
+          Select any scheduled screening to view live seat availability, occupancy rates, and passenger details.
+        </p>
+      </div>
+      <div style="min-width:320px;">
+        <select id="screeningSelector" onchange="loadScreeningOccupancy(this.value)" style="margin:0;">
+          <option value="">-- Choose a Scheduled Show to Inspect --</option>
+          {% for sc in screenings %}
+            <option value="{{ sc.screening_id }}">
+              {{ sc.screening_date }} · {{ sc.start_time[:5] if sc.start_time else '' }} · {{ sc.title }} ({{ sc.theater_name }} - {{ sc.screen_name }})
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div id="occupancyContainer" style="display:none;background:rgba(19,15,37,0.8);border-radius:12px;padding:24px;border:1px solid var(--panel-border);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h3 id="occMovieTitle" style="margin:0 0 4px;font-size:1.25rem;color:#ffffff;"></h3>
+          <p id="occScreenDetails" class="muted text-sm" style="margin:0;"></p>
+        </div>
+        <div style="display:flex;gap:16px;align-items:center;">
+          <div style="text-align:right;">
+            <div class="muted text-sm">Occupancy Rate:</div>
+            <div id="occRateDisplay" class="price" style="font-size:1.4rem;">0%</div>
+          </div>
+          <div id="occCountBadge" class="badge badge-accent" style="padding:6px 12px;font-size:0.85rem;"></div>
+        </div>
+      </div>
+
+      <!-- Seat Map Visualization for Manager -->
+      <div style="text-align:center;margin:24px 0 16px;">
+        <div class="screen-indicator" style="width:60%;"></div>
+        <div class="screen-text">SCREEN</div>
+        <div id="occSeatsGrid" style="display:flex;flex-direction:column;gap:6px;align-items:center;"></div>
+      </div>
+
+      <!-- Selected Seat Details Card (Hover/Click) -->
+      <div id="seatDetailBox" style="margin-top:20px;padding:16px;background:rgba(28,23,50,0.9);border-radius:10px;border:1px solid var(--panel-border);display:none;">
+        <h4 style="margin:0 0 6px;color:var(--accent-light);" id="seatDetailTitle">Seat Info</h4>
+        <div id="seatDetailContent" class="text-sm"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- TAB 9: FINANCIAL ANALYTICS                              -->
+<!-- ======================================================== -->
+<div id="tab-analytics" class="tab-content {% if active_tab == 'analytics' %}active{% endif %}">
+  <div class="grid" style="grid-template-columns:1fr 1fr;gap:24px;">
+    <div class="panel">
+      <h2>Financial Analytics - By Movie</h2>
+      <p class="muted text-sm" style="margin-bottom:16px;">
+        Gross revenue and ticket volume aggregated by movie title.
+      </p>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Movie</th>
+              <th>Bookings</th>
+              <th>Tickets</th>
+              <th style="text-align:right;">Revenue (Rs.)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rm in revenue_by_movie %}
+              <tr>
+                <td><strong>{{ rm.title }}</strong></td>
+                <td>{{ rm.total_bookings }}</td>
+                <td>{{ rm.total_tickets }}</td>
+                <td style="text-align:right;color:var(--accent-light);font-weight:700;">
+                  Rs. {{ '%.2f'|format(rm.gross_revenue) }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Financial Analytics - By Multiplex</h2>
+      <p class="muted text-sm" style="margin-bottom:16px;">
+        Gross revenue aggregated by theater venue and metro hub.
+      </p>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Theater</th>
+              <th>City</th>
+              <th>Bookings</th>
+              <th style="text-align:right;">Revenue (Rs.)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rt in revenue_by_theater %}
+              <tr>
+                <td><strong>{{ rt.theater_name }}</strong></td>
+                <td>{{ rt.city_name }}</td>
+                <td>{{ rt.total_bookings }}</td>
+                <td style="text-align:right;color:var(--accent-light);font-weight:700;">
+                  Rs. {{ '%.2f'|format(rt.gross_revenue) }}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- MODALS FOR EDITING EVERY OTHER FEATURE                  -->
+<!-- ======================================================== -->
+
+<!-- 1. ADD MOVIE MODAL -->
+<div id="addMovieModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Add New Movie Title</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('addMovieModal')">&times;</button>
+    </div>
+    <form method="post" action="{{ url_for('admin_add_movie') }}">
+      <div class="modal-body">
+        <label>Movie Title
+          <input type="text" name="title" required placeholder="e.g. Avatar: The Way of Water">
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <label>Language
+            <input type="text" name="language" value="English" required>
+          </label>
+          <label>Duration (Minutes)
+            <input type="number" name="duration_minutes" value="135" required>
+          </label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <label>Censor Rating
+            <select name="rating">
+              <option value="U">U</option>
+              <option value="UA" selected>UA</option>
+              <option value="A">A</option>
+            </select>
+          </label>
+          <label>Dimension / Format
+            <input type="text" name="dimension" value="2D, 3D" required>
+          </label>
+          <label>Release Date
+            <input type="date" name="release_date" value="2026-05-15" required>
+          </label>
+        </div>
+        <label>Genres (Hold Ctrl / Command to select multiple)
+          <select name="genre_ids" multiple style="height:100px;">
+            {% for g in genres %}
+              <option value="{{ g.genre_id }}">{{ g.genre_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Synopsis
+          <textarea name="synopsis" rows="3" placeholder="Enter movie story synopsis..."></textarea>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addMovieModal')">Cancel</button>
+        <button type="submit" class="btn">Save & Sync to JSON</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 2. EDIT MOVIE MODAL -->
+<div id="editMovieModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="editMovieHeader">Edit Movie Details</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('editMovieModal')">&times;</button>
+    </div>
+    <form id="editMovieForm" method="post" action="">
+      <div class="modal-body">
+        <label>Movie Title
+          <input type="text" id="editMovieTitle" name="title" required>
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <label>Language
+            <input type="text" id="editMovieLanguage" name="language" required>
+          </label>
+          <label>Duration (Minutes)
+            <input type="number" id="editMovieDuration" name="duration_minutes" required>
+          </label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <label>Censor Rating
+            <select id="editMovieRating" name="rating">
+              <option value="U">U</option>
+              <option value="UA">UA</option>
+              <option value="A">A</option>
+            </select>
+          </label>
+          <label>Dimension / Format
+            <input type="text" id="editMovieDimension" name="dimension" required>
+          </label>
+          <label>Release Date
+            <input type="date" id="editMovieReleaseDate" name="release_date" required>
+          </label>
+        </div>
+        <label>Genres (Select all applicable)
+          <select id="editMovieGenres" name="genre_ids" multiple style="height:100px;">
+            {% for g in genres %}
+              <option value="{{ g.genre_id }}">{{ g.genre_name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Synopsis
+          <textarea id="editMovieSynopsis" name="synopsis" rows="3"></textarea>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editMovieModal')">Cancel</button>
+        <button type="submit" class="btn">Update & Sync to JSON</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 3. EDIT SCREENING MODAL -->
+<div id="editScreeningModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="editScreeningHeader">Edit Showtime Schedule</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('editScreeningModal')">&times;</button>
+    </div>
+    <form id="editScreeningForm" method="post" action="">
+      <div class="modal-body">
+        <label>Movie
+          <select id="editScreeningMovie" name="movie_id" required>
+            {% for m in movies %}
+              <option value="{{ m.movie_id }}">{{ m.title }} ({{ m.language }})</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Theater Screen
+          <select id="editScreeningScreen" name="screen_id" required>
+            {% for sc in screens %}
+              <option value="{{ sc.screen_id }}">
+                {{ sc.theater_name }} · {{ sc.screen_name }} ({{ sc.screen_type }})
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <label>Time Slot
+            <select id="editScreeningSlot" name="slot_id" required>
+              {% for sl in slots %}
+                <option value="{{ sl.slot_id }}">{{ sl.slot_name }} ({{ sl.start_time[:5] }})</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Screening Date
+            <input type="date" id="editScreeningDate" name="screening_date" required>
+          </label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <label>Base Price (Rs.)
+            <input type="number" step="10" id="editScreeningPrice" name="base_price" required>
+          </label>
+          <label>Status
+            <select id="editScreeningStatus" name="status">
+              <option value="SCHEDULED">SCHEDULED</option>
+              <option value="CANCELLED">CANCELLED</option>
+              <option value="COMPLETED">COMPLETED</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editScreeningModal')">Cancel</button>
+        <button type="submit" class="btn">Update Showtime & Sync JSON</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 4. ADD THEATER MODAL -->
+<div id="addTheaterModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Add New Multiplex Venue</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('addTheaterModal')">&times;</button>
+    </div>
+    <form method="post" action="{{ url_for('admin_add_theater') }}">
+      <div class="modal-body">
+        <label>Theater Name
+          <input type="text" name="theater_name" placeholder="e.g. CineSphere Platinum PVR" required>
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <label>City Hub
+            <select name="city_id" required>
+              {% for c in cities %}
+                <option value="{{ c.city_id }}">{{ c.city_name }} ({{ c.state }})</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Location Area
+            <input type="text" name="location_area" placeholder="e.g. Hitec City" required>
+          </label>
+        </div>
+        <label>Full Address
+          <textarea name="address" rows="2" placeholder="Street, landmark, mall..." required></textarea>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addTheaterModal')">Cancel</button>
+        <button type="submit" class="btn">Create Theater & Sync JSON</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 5. EDIT THEATER MODAL -->
+<div id="editTheaterModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="editTheaterHeader">Edit Theater Details</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('editTheaterModal')">&times;</button>
+    </div>
+    <form id="editTheaterForm" method="post" action="">
+      <div class="modal-body">
+        <label>Theater Name
+          <input type="text" id="editTheaterName" name="theater_name" required>
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <label>City Hub
+            <select id="editTheaterCity" name="city_id" required>
+              {% for c in cities %}
+                <option value="{{ c.city_id }}">{{ c.city_name }} ({{ c.state }})</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Location Area
+            <input type="text" id="editTheaterLocation" name="location_area" required>
+          </label>
+        </div>
+        <label>Full Address
+          <textarea id="editTheaterAddress" name="address" rows="2" required></textarea>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editTheaterModal')">Cancel</button>
+        <button type="submit" class="btn">Update Theater & Sync JSON</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 6. EDIT SCREEN MODAL -->
+<div id="editScreenModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="editScreenHeader">Edit Auditorium Screen</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('editScreenModal')">&times;</button>
+    </div>
+    <form id="editScreenForm" method="post" action="">
+      <div class="modal-body">
+        <label>Screen Name
+          <input type="text" id="editScreenName" name="screen_name" required>
+        </label>
+        <label>Projection & Audio Format
+          <select id="editScreenType" name="screen_type">
+            <option value="IMAX 3D">IMAX 3D</option>
+            <option value="IMAX Laser">IMAX Laser</option>
+            <option value="Dolby Atmos 2D">Dolby Atmos 2D</option>
+            <option value="Dolby Vision 4K">Dolby Vision 4K</option>
+            <option value="4DX Motion">4DX Motion</option>
+            <option value="VIP Gold Class">VIP Gold Class</option>
+            <option value="Standard 2D">Standard 2D</option>
+          </select>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editScreenModal')">Cancel</button>
+        <button type="submit" class="btn">Update Screen & Sync JSON</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 7. ADD CONCESSION MODAL -->
+<div id="addConcessionModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>Add Food & Beverage Item</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('addConcessionModal')">&times;</button>
+    </div>
+    <form method="post" action="{{ url_for('admin_add_concession') }}">
+      <div class="modal-body">
+        <label>Item Name
+          <input type="text" name="item_name" placeholder="e.g. Peri Peri Cheese Fries" required>
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <label>Category
+            <select name="category">
+              <option value="Popcorn">Popcorn</option>
+              <option value="Snacks">Snacks</option>
+              <option value="Beverages">Beverages</option>
+              <option value="Combos">Combos</option>
+            </select>
+          </label>
+          <label>Price (Rs.)
+            <input type="number" step="10" name="price" value="200.00" required>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('addConcessionModal')">Cancel</button>
+        <button type="submit" class="btn">Add Item & Sync JSON</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 8. EDIT CONCESSION MODAL -->
+<div id="editConcessionModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="editConcessionHeader">Edit Food / Snack Item</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('editConcessionModal')">&times;</button>
+    </div>
+    <form id="editConcessionForm" method="post" action="">
+      <div class="modal-body">
+        <label>Item Name
+          <input type="text" id="editConcessionName" name="item_name" required>
+        </label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <label>Category
+            <select id="editConcessionCategory" name="category">
+              <option value="Popcorn">Popcorn</option>
+              <option value="Snacks">Snacks</option>
+              <option value="Beverages">Beverages</option>
+              <option value="Combos">Combos</option>
+            </select>
+          </label>
+          <label>Price (Rs.)
+            <input type="number" step="10" id="editConcessionPrice" name="price" required>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editConcessionModal')">Cancel</button>
+        <button type="submit" class="btn">Update Item & Sync JSON</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 9. EDIT SEAT CATEGORY MODAL -->
+<div id="editSeatCategoryModal" class="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="editSeatCategoryHeader">Edit Seat Tier Multiplier</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('editSeatCategoryModal')">&times;</button>
+    </div>
+    <form id="editSeatCategoryForm" method="post" action="">
+      <div class="modal-body">
+        <label>Tier Name
+          <input type="text" id="editSeatCatName" name="category_name" required>
+        </label>
+        <label>Price Multiplier (e.g. 1.50 = 150% of base ticket price)
+          <input type="number" step="0.05" id="editSeatCatMultiplier" name="price_multiplier" required>
+        </label>
+        <label>Description & Amenities
+          <textarea id="editSeatCatDesc" name="description" rows="2"></textarea>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('editSeatCategoryModal')">Cancel</button>
+        <button type="submit" class="btn">Save Multiplier & Sync JSON</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 10. EDIT BOOKING STATUS MODAL -->
+<div id="bookingStatusModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:440px;">
+    <div class="modal-header">
+      <h3 id="bookingStatusHeader">Update Booking Status</h3>
+      <button type="button" class="modal-close-btn" onclick="closeModal('bookingStatusModal')">&times;</button>
+    </div>
+    <form id="bookingStatusForm" method="post" action="">
+      <div class="modal-body">
+        <p class="text-sm muted" id="bookingStatusRefText"></p>
+        <label>Booking Status
+          <select id="bookingStatusSelect" name="booking_status">
+            <option value="CONFIRMED">CONFIRMED</option>
+            <option value="CANCELLED">CANCELLED (Refund)</option>
+          </select>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('bookingStatusModal')">Cancel</button>
+        <button type="submit" class="btn">Update Status & Sync JSON</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ======================================================== -->
+<!-- CLIENT JAVASCRIPT: CLOCK, TABS, MODALS & LIVE JSON VIEW -->
+<!-- ======================================================== -->
 <script>
-  // Real-time screening occupancy loader
+  // 1. LIVE DIGITAL CLOCK & DATE UPDATER
+  function updateLiveClock() {
+    const now = new Date();
+    const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+    const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+
+    const timeStr = now.toLocaleTimeString('en-US', timeOptions);
+    const dateStr = now.toLocaleDateString('en-US', dateOptions);
+
+    const clockElem = document.getElementById('liveDigitalClock');
+    const dateElem = document.getElementById('liveDigitalDate');
+
+    if (clockElem) clockElem.textContent = timeStr;
+    if (dateElem) dateElem.textContent = dateStr;
+  }
+  setInterval(updateLiveClock, 1000);
+  updateLiveClock();
+
+  // 2. TAB SWITCHING
+  function switchAdminTab(tabName, btnElem) {
+    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+    document.querySelectorAll('.admin-tab-btn').forEach(b => b.classList.remove('active'));
+
+    const targetTab = document.getElementById('tab-' + tabName);
+    if (targetTab) {
+      targetTab.classList.add('active');
+    }
+    if (btnElem) {
+      btnElem.classList.add('active');
+    }
+
+    // Keep URL parameter clean
+    const url = new URL(window.location);
+    url.searchParams.set('tab', tabName);
+    window.history.replaceState({}, '', url);
+
+    if (tabName === 'json') {
+      loadAdminJsonView(document.getElementById('adminJsonViewSelector').value);
+    }
+  }
+
+  // 3. LIVE JSON VIEWER FOR SIR
+  let _cachedAdminJson = '';
+  function loadAdminJsonView(viewKey) {
+    const codeBox = document.getElementById('adminJsonCode');
+    const infoLabel = document.getElementById('adminJsonInfoLabel');
+    const metaLabel = document.getElementById('adminJsonMetaLabel');
+
+    let endpoint = '/api/json/database';
+    let fileTitle = 'database_state.json';
+
+    if (viewKey === 'activity') {
+      endpoint = '/api/json/activity';
+      fileTitle = 'activity_log.json';
+    } else if (viewKey !== 'database') {
+      endpoint = '/api/json/table/' + viewKey;
+      fileTitle = `Table: ${viewKey} (from database_state.json)`;
+    }
+
+    infoLabel.innerHTML = `File / Table: <strong>${fileTitle}</strong>`;
+    metaLabel.textContent = 'Fetching real-time JSON...';
+
+    fetch(endpoint)
+      .then(res => res.json())
+      .then(data => {
+        const pretty = JSON.stringify(data, null, 2);
+        _cachedAdminJson = pretty;
+        codeBox.textContent = pretty;
+        const lineCount = pretty.split('\n').length;
+        metaLabel.textContent = `${lineCount} lines formatted · Live Synced`;
+      })
+      .catch(err => {
+        codeBox.textContent = '// Error fetching live JSON: ' + err;
+        metaLabel.textContent = 'Error connecting to endpoint';
+      });
+  }
+
+  function reloadAdminJson() {
+    const sel = document.getElementById('adminJsonViewSelector');
+    loadAdminJsonView(sel.value);
+  }
+
+  function filterAdminJson() {
+    const query = document.getElementById('adminJsonSearchBox').value.toLowerCase();
+    const box = document.getElementById('adminJsonCode');
+    if (!query) {
+      box.textContent = _cachedAdminJson;
+      return;
+    }
+    const lines = _cachedAdminJson.split('\n');
+    const filtered = lines.filter(l => l.toLowerCase().includes(query));
+    box.textContent = `// Filtered view matching "${query}" (${filtered.length} lines found):\n\n` + filtered.join('\n');
+  }
+
+  function copyAdminJson() {
+    const text = document.getElementById('adminJsonCode').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copyAdminJsonBtn');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied to Clipboard!';
+      btn.style.color = 'var(--success)';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.color = '';
+      }, 2000);
+    }).catch(err => alert('Please select and copy manually.'));
+  }
+
+  // 4. MODAL CONTROLS
+  function openModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+  }
+  function closeModal(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  }
+
+  // Modals for each feature:
+  function openAddMovieModal() {
+    openModal('addMovieModal');
+  }
+
+  function openEditMovieModal(movie) {
+    document.getElementById('editMovieHeader').textContent = `Edit Movie: ${movie.title} (ID #${movie.movie_id})`;
+    document.getElementById('editMovieForm').action = `/admin/movie/edit/${movie.movie_id}`;
+    document.getElementById('editMovieTitle').value = movie.title || '';
+    document.getElementById('editMovieLanguage').value = movie.language || 'English';
+    document.getElementById('editMovieDuration').value = movie.duration_minutes || 120;
+    document.getElementById('editMovieRating').value = movie.rating || 'UA';
+    document.getElementById('editMovieDimension').value = movie.dimension || '2D';
+    document.getElementById('editMovieReleaseDate').value = movie.release_date || '';
+    document.getElementById('editMovieSynopsis').value = movie.synopsis || '';
+    openModal('editMovieModal');
+  }
+
+  function openEditScreeningModal(screening) {
+    document.getElementById('editScreeningHeader').textContent = `Edit Showtime #${screening.screening_id}: ${screening.title}`;
+    document.getElementById('editScreeningForm').action = `/admin/screening/edit/${screening.screening_id}`;
+    document.getElementById('editScreeningMovie').value = screening.movie_id;
+    document.getElementById('editScreeningScreen').value = screening.screen_id;
+    document.getElementById('editScreeningSlot').value = screening.slot_id;
+    document.getElementById('editScreeningDate').value = screening.screening_date;
+    document.getElementById('editScreeningPrice').value = screening.base_price;
+    document.getElementById('editScreeningStatus').value = screening.status || 'SCHEDULED';
+    openModal('editScreeningModal');
+  }
+
+  function openAddTheaterModal() {
+    openModal('addTheaterModal');
+  }
+
+  function openEditTheaterModal(theater) {
+    document.getElementById('editTheaterHeader').textContent = `Edit Theater: ${theater.theater_name} (ID #${theater.theater_id})`;
+    document.getElementById('editTheaterForm').action = `/admin/theater/edit/${theater.theater_id}`;
+    document.getElementById('editTheaterName').value = theater.theater_name || '';
+    document.getElementById('editTheaterCity').value = theater.city_id;
+    document.getElementById('editTheaterLocation').value = theater.location_area || '';
+    document.getElementById('editTheaterAddress').value = theater.address || '';
+    openModal('editTheaterModal');
+  }
+
+  function openEditScreenModal(screen) {
+    document.getElementById('editScreenHeader').textContent = `Edit Screen: ${screen.screen_name}`;
+    document.getElementById('editScreenForm').action = `/admin/screen/edit/${screen.screen_id}`;
+    document.getElementById('editScreenName').value = screen.screen_name || '';
+    document.getElementById('editScreenType').value = screen.screen_type || 'Standard 2D';
+    openModal('editScreenModal');
+  }
+
+  function openAddConcessionModal() {
+    openModal('addConcessionModal');
+  }
+
+  function openEditConcessionModal(item) {
+    document.getElementById('editConcessionHeader').textContent = `Edit Snack Item: ${item.item_name} (ID #${item.item_id})`;
+    document.getElementById('editConcessionForm').action = `/admin/concession/edit/${item.item_id}`;
+    document.getElementById('editConcessionName').value = item.item_name || '';
+    document.getElementById('editConcessionCategory').value = item.category || 'Popcorn';
+    document.getElementById('editConcessionPrice').value = item.price || 150;
+    openModal('editConcessionModal');
+  }
+
+  function openEditSeatCategoryModal(cat) {
+    document.getElementById('editSeatCategoryHeader').textContent = `Edit Seat Tier: ${cat.category_name} (ID #${cat.category_id})`;
+    document.getElementById('editSeatCategoryForm').action = `/admin/seat-category/edit/${cat.category_id}`;
+    document.getElementById('editSeatCatName').value = cat.category_name || '';
+    document.getElementById('editSeatCatMultiplier').value = cat.price_multiplier || 1.0;
+    document.getElementById('editSeatCatDesc').value = cat.description || '';
+    openModal('editSeatCategoryModal');
+  }
+
+  function openBookingStatusModal(bookingId, ref, currentStatus) {
+    document.getElementById('bookingStatusHeader').textContent = `Edit Status: Booking #${bookingId}`;
+    document.getElementById('bookingStatusRefText').textContent = `Reference: ${ref} · Current Status: ${currentStatus}`;
+    document.getElementById('bookingStatusForm').action = `/admin/booking/edit-status/${bookingId}`;
+    document.getElementById('bookingStatusSelect').value = currentStatus;
+    openModal('bookingStatusModal');
+  }
+
+  // Close modals on clicking overlay backdrop
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', function(e) {
+      if (e.target === this) {
+        this.classList.remove('active');
+      }
+    });
+  });
+
+  // 5. SEAT OCCUPANCY INSPECTOR
   function loadScreeningOccupancy(screeningId) {
     if (!screeningId) {
       document.getElementById('occupancyContainer').style.display = 'none';
@@ -418,11 +1526,9 @@
         document.getElementById('occRateDisplay').textContent = data.occupancy_rate + '%';
         document.getElementById('occCountBadge').textContent = `${data.occupied_count} of ${data.total_seats} Seats Occupied`;
 
-        // Render seats
         const grid = document.getElementById('occSeatsGrid');
         grid.innerHTML = '';
 
-        // Group by row
         const rows = {};
         data.seats.forEach(s => {
           if (!rows[s.row_label]) rows[s.row_label] = [];
@@ -496,12 +1602,17 @@
     }
   }
 
-  // Pre-select first screening if present
+  // Pre-load occupancy and JSON viewer if needed
   window.addEventListener('DOMContentLoaded', () => {
     const sel = document.getElementById('screeningSelector');
     if (sel && sel.options.length > 1) {
       sel.selectedIndex = 1;
       loadScreeningOccupancy(sel.value);
+    }
+
+    const currentTab = "{{ active_tab or 'bookings' }}";
+    if (currentTab === 'json') {
+      loadAdminJsonView('database');
     }
   });
 </script>

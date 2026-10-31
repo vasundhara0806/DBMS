@@ -1,0 +1,437 @@
+[
+  {
+    "id": 1,
+    "timestamp": "2026-10-31 18:13:53",
+    "action": "TEST_INIT",
+    "table": "system",
+    "user": "System / Manager",
+    "summary": "Initial sync test",
+    "details": {}
+  },
+  {
+    "id": 2,
+    "timestamp": "2026-10-31 18:21:43",
+    "action": "INITIALIZE_DATABASE",
+    "table": "system",
+    "user": "System Initializer",
+    "summary": "Database initialized with full 17-table schema and BookMyShow seed data",
+    "details": {}
+  },
+  {
+    "id": 3,
+    "timestamp": "2026-10-31 18:21:43",
+    "action": "CREATE_BOOKING",
+    "table": "booking",
+    "user": "Arjun Kumar",
+    "summary": "Booking CS-2026-3VNRS9 placed: 2 seat(s) for 'The Martian' (Total: Rs. 860.00)",
+    "details": {
+      "booking_id": 4,
+      "booking_reference": "CS-2026-3VNRS9",
+      "customer_name": "Arjun Kumar",
+      "movie": "The Martian",
+      "seats_count": 2,
+      "total_amount": 860.0,
+      "payment_method": "UPI",
+      "transaction_reference": "TXN-UPI-4-52433502"
+    }
+  },
+  {
+    "id": 4,
+    "timestamp": "2026-10-31 18:26:38",
+    "action": "INITIALIZE_DATABASE",
+    "table": "system",
+    "user": "System Initializer",
+    "summary": "Database initialized with full 17-table schema and BookMyShow seed data",
+    "details": {}
+  },
+  {
+    "id": 5,
+    "timestamp": "2026-10-31 18:26:39",
+    "action": "CREATE_BOOKING",
+    "table": "booking",
+    "user": "Arjun Kumar",
+    "summary": "Booking CS-2026-G2R3DX placed: 2 seat(s) for 'The Martian' (Total: Rs. 860.00)",
+    "details": {
+      "booking_id": 4,
+      "booking_reference": "CS-2026-G2R3DX",
+      "customer_name": "Arjun Kumar",
+      "movie": "The Martian",
+      "seats_count": 2,
+      "total_amount": 860.0,
+      "payment_method": "UPI",
+      "transaction_reference": "TXN-UPI-4-2D2F6279"
+    }
+  },
+  {
+    "id": 6,
+    "timestamp": "2026-10-31 18:28:30",
+    "action": "INITIALIZE_DATABASE",
+    "table": "system",
+    "user": "System Initializer",
+    "summary": "Database initialized with full 17-table schema and BookMyShow seed data",
+    "details": {}
+  },
+  {
+    "id": 7,
+    "timestamp": "2026-10-31 18:28:30",
+    "action": "CREATE_BOOKING",
+    "table": "booking",
+    "user": "Arjun Kumar",
+    "summary": "Booking CS-2026-CK9JLF placed: 2 seat(s) for 'The Martian' (Total: Rs. 860.00)",
+    "details": {
+      "booking_id": 4,
+      "booking_reference": "CS-2026-CK9JLF",
+      "customer_name": "Arjun Kumar",
+      "movie": "The Martian",
+      "seats_count": 2,
+      "total_amount": 860.0,
+      "payment_method": "UPI",
+      "transaction_reference": "TXN-UPI-4-152F6960"
+    }
+  },
+  {
+    "id": 8,
+    "timestamp": "2026-10-31 18:28:30",
+    "action": "UPDATE_MOVIE",
+    "table": "movie",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated movie #1 'The Martian Extended Edition' (English, UA)",
+    "details": {
+      "movie_id": 1,
+      "title": "The Martian Extended Edition",
+      "duration": 155,
+      "language": "English"
+    }
+  },
+  {
+    "id": 9,
+    "timestamp": "2026-10-31 18:28:30",
+    "action": "UPDATE_SCREENING",
+    "table": "screening",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated showtime #1: Date 2026-11-01, Price Rs. 290.00, Status SCHEDULED",
+    "details": {
+      "screening_id": 1,
+      "movie_id": "1",
+      "screen_id": "1",
+      "slot_id": "1",
+      "date": "2026-11-01",
+      "price": "290.00",
+      "status": "SCHEDULED"
+    }
+  },
+  {
+    "id": 10,
+    "timestamp": "2026-10-31 18:28:30",
+    "action": "UPDATE_THEATER",
+    "table": "theater",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated theater #1 'CineSphere Luxe Banjara Hills Premium' (Banjara Hills Rd 2)",
+    "details": {
+      "theater_id": 1,
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2"
+    }
+  },
+  {
+    "id": 11,
+    "timestamp": "2026-10-31 18:28:30",
+    "action": "UPDATE_SCREEN",
+    "table": "screen",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated screen #1 'Screen 1 (IMAX Laser Dual 4K)' (IMAX Laser)",
+    "details": {
+      "screen_id": 1,
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser"
+    }
+  },
+  {
+    "id": 12,
+    "timestamp": "2026-10-31 18:28:30",
+    "action": "UPDATE_CONCESSION",
+    "table": "concession_item",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated concession snack #1 'Jumbo Caramel Gourmet Popcorn' to Rs. 280.00",
+    "details": {
+      "item_id": 1,
+      "item_name": "Jumbo Caramel Gourmet Popcorn",
+      "category": "Popcorn",
+      "price": 280.0
+    }
+  },
+  {
+    "id": 13,
+    "timestamp": "2026-10-31 18:28:30",
+    "action": "UPDATE_SEAT_CATEGORY",
+    "table": "seat_category",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated seat category 'VIP Recliner Supreme' pricing multiplier to 1.75x",
+    "details": {
+      "category_id": 1,
+      "category_name": "VIP Recliner Supreme",
+      "price_multiplier": 1.75
+    }
+  },
+  {
+    "id": 14,
+    "timestamp": "2026-10-31 18:28:31",
+    "action": "UPDATE_BOOKING_STATUS",
+    "table": "booking",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Admin updated Booking #2 status to 'CANCELLED'",
+    "details": {
+      "booking_id": 2,
+      "status": "CANCELLED",
+      "payment_status": "REFUNDED"
+    }
+  },
+  {
+    "id": 15,
+    "timestamp": "2026-10-31 18:32:16",
+    "action": "INITIALIZE_DATABASE",
+    "table": "system",
+    "user": "System Initializer",
+    "summary": "Database initialized with full 17-table schema and BookMyShow seed data",
+    "details": {}
+  },
+  {
+    "id": 16,
+    "timestamp": "2026-10-31 18:32:16",
+    "action": "CREATE_BOOKING",
+    "table": "booking",
+    "user": "Arjun Kumar",
+    "summary": "Booking CS-2026-HS0FVG placed: 2 seat(s) for 'The Martian' (Total: Rs. 860.00)",
+    "details": {
+      "booking_id": 4,
+      "booking_reference": "CS-2026-HS0FVG",
+      "customer_name": "Arjun Kumar",
+      "movie": "The Martian",
+      "seats_count": 2,
+      "total_amount": 860.0,
+      "payment_method": "UPI",
+      "transaction_reference": "TXN-UPI-4-C5341444"
+    }
+  },
+  {
+    "id": 17,
+    "timestamp": "2026-10-31 18:32:17",
+    "action": "UPDATE_MOVIE",
+    "table": "movie",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated movie #1 'The Martian Extended Edition' (English, UA)",
+    "details": {
+      "movie_id": 1,
+      "title": "The Martian Extended Edition",
+      "duration": 155,
+      "language": "English"
+    }
+  },
+  {
+    "id": 18,
+    "timestamp": "2026-10-31 18:32:17",
+    "action": "UPDATE_SCREENING",
+    "table": "screening",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated showtime #1: Date 2026-11-01, Price Rs. 290.00, Status SCHEDULED",
+    "details": {
+      "screening_id": 1,
+      "movie_id": "1",
+      "screen_id": "1",
+      "slot_id": "1",
+      "date": "2026-11-01",
+      "price": "290.00",
+      "status": "SCHEDULED"
+    }
+  },
+  {
+    "id": 19,
+    "timestamp": "2026-10-31 18:32:17",
+    "action": "UPDATE_THEATER",
+    "table": "theater",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated theater #1 'CineSphere Luxe Banjara Hills Premium' (Banjara Hills Rd 2)",
+    "details": {
+      "theater_id": 1,
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2"
+    }
+  },
+  {
+    "id": 20,
+    "timestamp": "2026-10-31 18:32:17",
+    "action": "UPDATE_SCREEN",
+    "table": "screen",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated screen #1 'Screen 1 (IMAX Laser Dual 4K)' (IMAX Laser)",
+    "details": {
+      "screen_id": 1,
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser"
+    }
+  },
+  {
+    "id": 21,
+    "timestamp": "2026-10-31 18:32:17",
+    "action": "UPDATE_CONCESSION",
+    "table": "concession_item",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated concession snack #1 'Jumbo Caramel Gourmet Popcorn' to Rs. 280.00",
+    "details": {
+      "item_id": 1,
+      "item_name": "Jumbo Caramel Gourmet Popcorn",
+      "category": "Popcorn",
+      "price": 280.0
+    }
+  },
+  {
+    "id": 22,
+    "timestamp": "2026-10-31 18:32:17",
+    "action": "UPDATE_SEAT_CATEGORY",
+    "table": "seat_category",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated seat category 'VIP Recliner Supreme' pricing multiplier to 1.75x",
+    "details": {
+      "category_id": 1,
+      "category_name": "VIP Recliner Supreme",
+      "price_multiplier": 1.75
+    }
+  },
+  {
+    "id": 23,
+    "timestamp": "2026-10-31 18:32:17",
+    "action": "UPDATE_BOOKING_STATUS",
+    "table": "booking",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Admin updated Booking #2 status to 'CANCELLED'",
+    "details": {
+      "booking_id": 2,
+      "status": "CANCELLED",
+      "payment_status": "REFUNDED"
+    }
+  },
+  {
+    "id": 24,
+    "timestamp": "2026-10-31 18:33:18",
+    "action": "INITIALIZE_DATABASE",
+    "table": "system",
+    "user": "System Initializer",
+    "summary": "Database initialized with full 17-table schema and BookMyShow seed data",
+    "details": {}
+  },
+  {
+    "id": 25,
+    "timestamp": "2026-10-31 18:33:19",
+    "action": "CREATE_BOOKING",
+    "table": "booking",
+    "user": "Arjun Kumar",
+    "summary": "Booking CS-2026-25GSJZ placed: 2 seat(s) for 'The Martian' (Total: Rs. 860.00)",
+    "details": {
+      "booking_id": 4,
+      "booking_reference": "CS-2026-25GSJZ",
+      "customer_name": "Arjun Kumar",
+      "movie": "The Martian",
+      "seats_count": 2,
+      "total_amount": 860.0,
+      "payment_method": "UPI",
+      "transaction_reference": "TXN-UPI-4-8296074E"
+    }
+  },
+  {
+    "id": 26,
+    "timestamp": "2026-10-31 18:33:19",
+    "action": "UPDATE_MOVIE",
+    "table": "movie",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated movie #1 'The Martian Extended Edition' (English, UA)",
+    "details": {
+      "movie_id": 1,
+      "title": "The Martian Extended Edition",
+      "duration": 155,
+      "language": "English"
+    }
+  },
+  {
+    "id": 27,
+    "timestamp": "2026-10-31 18:33:19",
+    "action": "UPDATE_SCREENING",
+    "table": "screening",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated showtime #1: Date 2026-11-01, Price Rs. 290.00, Status SCHEDULED",
+    "details": {
+      "screening_id": 1,
+      "movie_id": "1",
+      "screen_id": "1",
+      "slot_id": "1",
+      "date": "2026-11-01",
+      "price": "290.00",
+      "status": "SCHEDULED"
+    }
+  },
+  {
+    "id": 28,
+    "timestamp": "2026-10-31 18:33:19",
+    "action": "UPDATE_THEATER",
+    "table": "theater",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated theater #1 'CineSphere Luxe Banjara Hills Premium' (Banjara Hills Rd 2)",
+    "details": {
+      "theater_id": 1,
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2"
+    }
+  },
+  {
+    "id": 29,
+    "timestamp": "2026-10-31 18:33:19",
+    "action": "UPDATE_SCREEN",
+    "table": "screen",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated screen #1 'Screen 1 (IMAX Laser Dual 4K)' (IMAX Laser)",
+    "details": {
+      "screen_id": 1,
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser"
+    }
+  },
+  {
+    "id": 30,
+    "timestamp": "2026-10-31 18:33:19",
+    "action": "UPDATE_CONCESSION",
+    "table": "concession_item",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated concession snack #1 'Jumbo Caramel Gourmet Popcorn' to Rs. 280.00",
+    "details": {
+      "item_id": 1,
+      "item_name": "Jumbo Caramel Gourmet Popcorn",
+      "category": "Popcorn",
+      "price": 280.0
+    }
+  },
+  {
+    "id": 31,
+    "timestamp": "2026-10-31 18:33:19",
+    "action": "UPDATE_SEAT_CATEGORY",
+    "table": "seat_category",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated seat category 'VIP Recliner Supreme' pricing multiplier to 1.75x",
+    "details": {
+      "category_id": 1,
+      "category_name": "VIP Recliner Supreme",
+      "price_multiplier": 1.75
+    }
+  },
+  {
+    "id": 32,
+    "timestamp": "2026-10-31 18:33:19",
+    "action": "UPDATE_BOOKING_STATUS",
+    "table": "booking",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Admin updated Booking #2 status to 'CANCELLED'",
+    "details": {
+      "booking_id": 2,
+      "status": "CANCELLED",
+      "payment_status": "REFUNDED"
+    }
+  }
+]

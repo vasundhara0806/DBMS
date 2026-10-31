@@ -105,6 +105,19 @@ def query(sql, params=(), one=False):
     finally:
         conn.close()
 
+def execute(sql, params=()):
+    sql = adapt_sql(sql)
+    conn = get_db()
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, params)
+        conn.commit()
+        last_id = cur.lastrowid
+        cur.close()
+        return last_id
+    finally:
+        conn.close()
+
 def init_sqlite_db():
     """Initializes the complete 17-table schema and seeds realistic BookMyShow data in SQLite."""
     conn = sqlite3.connect(SQLITE_DB_PATH)
@@ -536,6 +549,11 @@ def init_sqlite_db():
     conn.commit()
     conn.close()
     print("SQLite database successfully initialized with full BookMyShow schema and seed data!")
+    try:
+        import json_sync
+        json_sync.sync_all("INITIALIZE_DATABASE", "system", "Database initialized with full 17-table schema and BookMyShow seed data", user="System Initializer")
+    except Exception as e:
+        print(f"Notice: JSON sync on init: {e}")
 
 if __name__ == '__main__':
     print(f"Active Engine: {ACTIVE_ENGINE}")

@@ -108,6 +108,69 @@ Visit **http://127.0.0.1:5000** in your browser.
 
 ---
 
+## Real-Time JSON Synchronization ("Sir's Inspection Engine")
+
+Whenever **ANY** insertion, edit, delete, booking, or cancellation takes place anywhere in CineSphere, the system automatically mirrors and updates two JSON files in real time:
+
+1. **`database_state.json`**:
+   - Complete, structured snapshot of all 17 relational database tables (movies, screenings, theaters, screens, seat categories, concession items, customers, bookings, tickets, and payments).
+   - Formatted with 2-space indentation for immediate inspection in VS Code or web browsers.
+   - Includes metadata header: `last_synced_at`, `active_engine`, `last_action`, and record count totals.
+
+2. **`activity_log.json`**:
+   - Chronological audit log of every mutation / operation executed in the application.
+   - Records: incremental ID, exact timestamp (`YYYY-MM-DD HH:MM:SS`), action type (`INSERT_SCREENING`, `CREATE_BOOKING`, `UPDATE_MOVIE`, `UPDATE_THEATER`, `UPDATE_SEAT_CATEGORY`, etc.), target table, initiating user, and payload details.
+
+### How to Show the JSON File to Your Professor / Sir:
+- **Direct in Project Root**: Open `database_state.json` or `activity_log.json` directly in VS Code or Notepad.
+- **In the Admin Portal**: Navigate to `/admin` and click the **Live JSON File Inspector** tab. It includes live search, table filtering, 1-click clipboard copy, and a live refresh button.
+- **Dedicated Full-Page Inspector**: Open **`http://127.0.0.1:5000/view-json`** (also accessible from the top navigation bar).
+- **Download as JSON**: Click "Download JSON" in the Admin Portal or visit `/admin/download-json/database` / `/admin/download-json/activity`.
+- **Raw API JSON Endpoints**:
+  - `GET /api/json/database` — Returns full live database state as JSON.
+  - `GET /api/json/activity` — Returns full activity log as JSON.
+  - `GET /api/json/table/<table_name>` — Returns specific table records as JSON (e.g. `/api/json/table/movies`).
+
+---
+
+## Live System Date & Time Display
+
+The Admin Portal now includes a live system date and time widget:
+- **Real-Time Digital Clock**: Smooth 1-second pulse displaying `HH:MM:SS AM/PM` with a live green indicator.
+- **Full Date Display**: Full weekday, day, month, and year (e.g. `Saturday, 31 October 2026`).
+- **Last Sync Timestamp**: Shows the exact date & time when the database was last synchronized with `database_state.json`.
+- **Audit Timestamps**: All screenings, bookings, and activity logs display full date and time timestamps down to the second.
+
+---
+
+## Full Feature Editing in Admin Portal
+
+Every feature displayed across the customer website can now be directly modified from the Manager Admin Portal:
+
+1. **Movies Catalog**:
+   - **Edit Movie**: Update title, synopsis, language, duration (mins), censor certificate rating (U/UA/A), format (2D/3D/IMAX 3D/4DX), release date, and genre associations.
+   - **Add Movie**: Create new film listings that immediately display on the home page.
+   - **Delete Movie**: Safely remove movie records.
+2. **Showtimes & Schedules**:
+   - **Edit Showtime**: Modify screening dates, time slots, base ticket price (Rs.), and status (`SCHEDULED`, `CANCELLED`, `COMPLETED`).
+   - **Schedule Showtime**: Add new showtimes with automatic conflict checking.
+   - **Delete Showtime**: Cancel or remove showtimes from the public schedule.
+3. **Theaters & Auditoriums**:
+   - **Edit Theater**: Update multiplex venue name, metro city hub, location area, and address.
+   - **Add Theater**: Add new cinema multiplexes with automatic default screen and 60 seats.
+   - **Edit Screen**: Change screen label and audio-visual projection formats (IMAX 3D, Dolby Atmos, VIP Gold Class, etc.).
+4. **Food & Concession Items**:
+   - **Edit Concession**: Change snack item name, category (Popcorn, Snacks, Beverages, Combos), and price (Rs.).
+   - **Add Concession**: Add new F&B items available during customer checkout.
+   - **Delete Concession**: Remove items from the concession menu.
+5. **Seat Tiers & Pricing Multipliers**:
+   - **Edit Tier Multiplier**: Adjust pricing multipliers for VIP Recliners (e.g. 1.50x to 1.75x), Prime Gold (1.20x), and Classic Silver (1.00x) with immediate effect on ticket prices.
+   - **Edit Description**: Update seating tier descriptions and luxury amenities.
+6. **Booking Status & Overrides**:
+   - **Update Status**: Manually toggle booking status between `CONFIRMED` and `CANCELLED`, with automatic cascade to ticket and payment statuses.
+
+---
+
 ## Initializing MySQL (For Presentation / Submission)
 If you wish to run on a local MySQL server:
 1. Open MySQL Workbench or MySQL CLI:
@@ -123,3 +186,4 @@ If you wish to run on a local MySQL server:
    DB_NAME=cinesphere
    ```
 3. Run `python app.py`. CineSphere will automatically connect to your MySQL database!
+

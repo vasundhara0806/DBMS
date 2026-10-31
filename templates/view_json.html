@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+{% block title %}Live JSON Inspector · CineSphere DBMS{% endblock %}
+
+{% block content %}
+<div class="panel" style="padding:24px;background:linear-gradient(135deg, rgba(39,28,68,0.9) 0%, rgba(20,16,38,0.95) 100%);border-color:var(--accent);">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <span class="badge badge-accent">Live JSON File Viewer</span>
+        <span class="badge badge-success">Auto-Synchronized on Every Mutation</span>
+      </div>
+      <h1 style="font-size:1.85rem;margin:0 0 4px;">{{ title }}</h1>
+      <p class="muted text-sm" style="margin:0;">
+        Real-time JSON synchronization engine. All database insertions, updates, and cancellations are automatically mirrored to this file on disk.
+      </p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="{{ url_for('admin_portal', tab='json') }}" class="btn btn-secondary btn-sm">
+        Back to Admin Portal
+      </a>
+      <a href="{{ url_for('admin_download_json', file_type=file_type) }}" class="btn btn-sm">
+        Download {{ file_type }}.json
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <!-- Controls Toolbar -->
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--panel-border);">
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a href="{{ url_for('view_json', file='database') }}" class="btn btn-sm {% if file_type == 'database' %}btn-primary{% else %}btn-secondary{% endif %}">
+        database_state.json
+      </a>
+      <a href="{{ url_for('view_json', file='activity') }}" class="btn btn-sm {% if file_type == 'activity' %}btn-primary{% else %}btn-secondary{% endif %}">
+        activity_log.json
+      </a>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;flex:1;max-width:400px;min-width:240px;">
+      <input type="text" id="jsonSearchInput" placeholder="Filter / Search in JSON..." onkeyup="filterJsonView()" style="margin:0;width:100%;font-size:0.85rem;padding:7px 12px;">
+    </div>
+
+    <div style="display:flex;gap:8px;">
+      <button onclick="copyJsonToClipboard()" class="btn btn-secondary btn-sm" id="copyJsonBtn">
+        Copy Full JSON
+      </button>
+      <button onclick="window.location.reload()" class="btn btn-secondary btn-sm">
+        Refresh Now
+      </button>
+    </div>
+  </div>
+
+  <!-- JSON Metadata Cards -->
+  {% if file_type == 'database' and raw_data.get('_metadata') %}
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:12px;margin-bottom:16px;">
+      <div style="background:rgba(18,14,35,0.7);padding:10px 14px;border-radius:8px;border:1px solid var(--panel-border);">
+        <div class="text-sm muted">Last Synced Timestamp</div>
+        <strong style="color:var(--accent-light);">{{ raw_data['_metadata']['last_synced_at'] }}</strong>
+      </div>
+      <div style="background:rgba(18,14,35,0.7);padding:10px 14px;border-radius:8px;border:1px solid var(--panel-border);">
+        <div class="text-sm muted">Active Database Engine</div>
+        <strong style="color:#ffffff;">{{ raw_data['_metadata']['active_engine']|upper }}</strong>
+      </div>
+      <div style="background:rgba(18,14,35,0.7);padding:10px 14px;border-radius:8px;border:1px solid var(--panel-border);">
+        <div class="text-sm muted">Last Action Recorded</div>
+        <strong style="color:#ffffff;">{{ raw_data['_metadata']['last_action'] }}</strong>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- JSON Code Viewer -->
+  <div style="position:relative;background:#0d0a1a;border:1px solid var(--panel-border);border-radius:8px;overflow:hidden;">
+    <div style="display:flex;justify-content:space-between;align-items:center;background:#17122b;padding:8px 14px;border-bottom:1px solid var(--panel-border);font-size:0.8rem;color:var(--muted);">
+      <span>File: <strong>{{ 'database_state.json' if file_type == 'database' else 'activity_log.json' }}</strong></span>
+      <span id="jsonLineCount"></span>
+    </div>
+    <pre id="jsonPreBox" style="margin:0;padding:18px;max-height:650px;overflow:auto;font-family:Consolas, Monaco, 'Courier New', monospace;font-size:0.82rem;line-height:1.55;color:#e2daf8;"><code id="jsonCodeBox">{{ raw_data|tojson(indent=2) }}</code></pre>
+  </div>
+</div>
+
+<script>
+  function copyJsonToClipboard() {
+    const text = document.getElementById('jsonCodeBox').innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copyJsonBtn');
+      const orig = btn.textContent;
+      btn.textContent = 'Copied to Clipboard!';
+      btn.style.color = 'var(--success)';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.color = '';
+      }, 2500);
+    }).catch(err => {
+      alert('Could not copy automatically. Please select text manually.');
+    });
+  }
+
+  function filterJsonView() {
+    const query = document.getElementById('jsonSearchInput').value.toLowerCase();
+    const box = document.getElementById('jsonCodeBox');
+    if (!window._origJsonText) {
+      window._origJsonText = box.innerText;
+    }
+    if (!query) {
+      box.innerText = window._origJsonText;
+      return;
+    }
+    const lines = window._origJsonText.split('\n');
+    const filtered = lines.filter(l => l.toLowerCase().includes(query));
+    box.innerText = `// Filtered view matching "${query}" (${filtered.length} matching lines):\n\n` + filtered.join('\n');
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const text = document.getElementById('jsonCodeBox').innerText;
+    const lines = text.split('\n').length;
+    document.getElementById('jsonLineCount').textContent = `${lines} lines formatted`;
+  });
+</script>
+{% endblock %}

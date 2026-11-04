@@ -614,6 +614,7 @@ CREATE PROCEDURE sp_cancel_booking(IN p_booking_id INT)
 BEGIN
     DECLARE v_status VARCHAR(20) DEFAULT NULL;
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    
     BEGIN
         ROLLBACK;
         RESIGNAL;

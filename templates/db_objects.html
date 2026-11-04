@@ -1,0 +1,333 @@
+{% extends 'base.html' %}
+{% block title %}Views, Procedures & Triggers · CineSphere DBMS{% endblock %}
+
+{% block content %}
+<div class="panel" style="padding:26px;background:linear-gradient(135deg, rgba(39,28,68,0.92) 0%, rgba(20,16,38,0.97) 100%);border-color:var(--accent);">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;">
+    <div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+        <span class="badge badge-accent">DBMS Object Console</span>
+        <span class="badge badge-success"><span class="pulse-dot"></span> {{ objects.engine|upper }} Connected</span>
+      </div>
+      <h1 style="font-size:2rem;margin:0 0 6px;">Views, Stored Procedures &amp; Triggers</h1>
+      <p class="muted text-sm" style="margin:0;max-width:850px;">
+        Live catalogue of the database objects used by CineSphere. Preview every view, execute stored
+        procedures, and safely test triggers inside transactions that are always rolled back.
+      </p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="{{ url_for('admin_portal') }}" class="btn btn-sm">Back to Manager Portal</a>
+      <a href="{{ url_for('admin_portal', tab='analytics') }}" class="btn btn-secondary btn-sm">Financial Analytics</a>
+    </div>
+  </div>
+
+  <div class="grid" style="grid-template-columns:repeat(3, 1fr);gap:16px;margin-top:22px;">
+    <div class="kpi-card" style="margin:0;">
+      <div class="kpi-label">Database Views</div>
+      <div class="kpi-val">{{ objects.views|length }}</div>
+      <div class="kpi-sub">Read-only reporting layers</div>
+    </div>
+    <div class="kpi-card" style="margin:0;">
+      <div class="kpi-label">Stored Procedures</div>
+      <div class="kpi-val">{{ objects.procedures|length }}</div>
+      <div class="kpi-sub">{{ 'Native MySQL CALL' if objects.engine == 'mysql' else 'Python-emulated on SQLite' }}</div>
+    </div>
+    <div class="kpi-card" style="margin:0;">
+      <div class="kpi-label">Triggers</div>
+      <div class="kpi-val">{{ objects.triggers|length }}</div>
+      <div class="kpi-sub">Business rules enforced inside the database</div>
+    </div>
+  </div>
+</div>
+
+{% if proc_result %}
+  <div class="panel" id="procedure-result" style="border-color:{{ 'var(--danger)' if proc_result.error else 'var(--accent)' }};">
+    <div class="panel-header">
+      <div>
+        <h2 style="margin:0 0 4px;">Stored Procedure Result</h2>
+        <p class="muted text-sm" style="margin:0;font-family:monospace;">{{ proc_result.name }}({{ proc_result.params|join(', ') }})</p>
+      </div>
+      <span class="badge {{ 'badge-danger' if proc_result.error else 'badge-success' }}">
+        {{ 'ERROR' if proc_result.error else 'SUCCESS' }}
+      </span>
+    </div>
+
+    {% if proc_result.error %}
+      <p style="color:var(--danger);margin:0;">{{ proc_result.error }}</p>
+    {% elif proc_result.rows %}
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              {% for col in proc_result.rows[0].keys() %}
+                <th>{{ col|replace('_', ' ')|title }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in proc_result.rows %}
+              <tr>
+                {% for col in proc_result.rows[0].keys() %}
+                  <td>{{ row[col] if row[col] is not none else '-' }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="muted text-sm" style="margin:12px 0 0;">{{ proc_result.rows|length }} row(s) returned.</p>
+    {% else %}
+      <p class="muted" style="margin:0;">The procedure completed successfully but returned no rows.</p>
+    {% endif %}
+  </div>
+{% endif %}
+
+{% if trigger_result %}
+  <div class="panel" id="trigger-result" style="border-color:{{ 'var(--success)' if trigger_result.passed else 'var(--danger)' }};">
+    <div class="panel-header">
+      <div>
+        <h2 style="margin:0 0 4px;">Trigger Test Result</h2>
+        <p class="muted text-sm" style="margin:0;">{{ trigger_result.title }}</p>
+      </div>
+      <span class="badge {{ 'badge-success' if trigger_result.passed else 'badge-danger' }}">
+        {{ 'PASS' if trigger_result.passed else 'FAIL' }}
+      </span>
+    </div>
+    <p style="margin:0;color:{{ 'var(--success)' if trigger_result.passed else 'var(--danger)' }};">
+      {{ trigger_result.details }}
+    </p>
+    <p class="muted text-sm" style="margin:8px 0 0;">
+      Every trigger test runs inside a transaction and is rolled back, so no demo data is changed.
+    </p>
+  </div>
+{% endif %}
+
+<!-- ============================ VIEWS ============================ -->
+<div class="panel" id="views">
+  <div class="panel-header">
+    <div>
+      <h2 style="margin:0 0 4px;">1. Database Views</h2>
+      <p class="muted text-sm" style="margin:0;">
+        Views combine multiple tables into reusable reporting queries. The Manager Portal analytics and
+        several procedures read from these views.
+      </p>
+    </div>
+    <span class="badge badge-accent">{{ objects.views|length }} views</span>
+  </div>
+
+  <div class="grid" style="grid-template-columns:1fr 1fr;gap:16px;">
+    {% for v in objects.views %}
+      <div class="panel" style="margin:0;background:rgba(28,23,50,0.7);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div>
+            <h3 style="margin:0 0 4px;font-family:monospace;color:var(--accent-light);font-size:0.98rem;">{{ v.name }}</h3>
+            <p class="muted text-sm" style="margin:0 0 10px;">{{ v.description }}</p>
+          </div>
+          <span class="badge {{ 'badge-success' if v.installed else 'badge-danger' }}">
+            {{ 'Installed' if v.installed else 'Missing' }}
+          </span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <a class="btn btn-sm" href="{{ url_for('admin_db_objects', view=v.name) }}#view-preview">Preview View</a>
+          <details style="flex:1;min-width:130px;">
+            <summary class="muted text-sm" style="cursor:pointer;">View SQL definition</summary>
+            <pre style="white-space:pre-wrap;font-size:0.72rem;background:#0f0c1d;padding:10px;border-radius:6px;max-height:220px;overflow:auto;">{{ v.sql }}</pre>
+          </details>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% if view_preview %}
+  <div class="panel" id="view-preview">
+    <div class="panel-header">
+      <div>
+        <h2 style="margin:0 0 4px;font-family:monospace;">{{ view_preview.name }}</h2>
+        <p class="muted text-sm" style="margin:0;">Live preview (up to 25 rows).</p>
+      </div>
+      <a href="{{ url_for('admin_db_objects') }}" class="btn btn-secondary btn-sm">Close Preview</a>
+    </div>
+
+    {% if view_preview.error %}
+      <p style="color:var(--danger);margin:0;">{{ view_preview.error }}</p>
+    {% elif view_preview.rows %}
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              {% for col in view_preview.rows[0].keys() %}
+                <th>{{ col|replace('_', ' ')|title }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in view_preview.rows %}
+              <tr>
+                {% for col in view_preview.rows[0].keys() %}
+                  <td>{{ row[col] if row[col] is not none else '-' }}</td>
+                {% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="muted text-sm" style="margin:12px 0 0;">{{ view_preview.rows|length }} row(s) shown.</p>
+    {% else %}
+      <p class="muted" style="margin:0;">This view currently returns no rows.</p>
+    {% endif %}
+  </div>
+{% endif %}
+
+<!-- ========================= STORED PROCEDURES ========================= -->
+<div class="panel" id="procedures">
+  <div class="panel-header">
+    <div>
+      <h2 style="margin:0 0 4px;">2. Stored Procedures</h2>
+      <p class="muted text-sm" style="margin:0;">
+        {% if objects.engine == 'mysql' %}
+          These are native MySQL stored procedures executed with CALL.
+        {% else %}
+          SQLite has no stored-procedure language, so these procedures are registered and executed by the
+          Python layer. The MySQL build uses the native stored procedures in <code>init_schema.sql</code>.
+        {% endif %}
+      </p>
+    </div>
+    <span class="badge badge-accent">{{ objects.procedures|length }} procedures</span>
+  </div>
+
+  <div class="grid" style="grid-template-columns:1fr 1fr;gap:16px;">
+    {% for proc in objects.procedures %}
+      <div class="panel" style="margin:0;background:rgba(28,23,50,0.7);">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+          <div>
+            <h3 style="margin:0 0 4px;font-family:monospace;color:var(--accent-light);font-size:0.98rem;">{{ proc.name }}</h3>
+            <p class="muted text-sm" style="margin:0 0 10px;">{{ proc.description }}</p>
+          </div>
+          <span class="badge {{ 'badge-success' if proc.installed else 'badge-danger' }}">
+            {{ 'Installed' if proc.installed else 'Missing' }}
+          </span>
+        </div>
+
+        {% if proc.installed %}
+          <form method="post"
+                action="{{ url_for('admin_run_db_procedure', procedure_name=proc.name) }}"
+                {% if proc.name == 'sp_cancel_booking' %}
+                  onsubmit="return confirm('This will genuinely cancel the selected booking. Continue?');"
+                {% elif proc.name == 'sp_schedule_screening' %}
+                  onsubmit="return confirm('This will insert a new showtime into the database. Continue?');"
+                {% endif %}
+                style="display:flex;flex-direction:column;gap:10px;">
+            {% for p in proc.params %}
+              <label style="margin:0;">{{ p.label }}
+                {% if p.type == 'select' %}
+                  <select name="{{ p.name }}" required style="width:100%;">
+                    {% for opt in form_options[p.source] %}
+                      <option value="{{ opt.value }}" {% if loop.first %}selected{% endif %}>{{ opt.label }}</option>
+                    {% endfor %}
+                  </select>
+                {% elif p.type == 'date' %}
+                  <input type="date" name="{{ p.name }}"
+                         value="{{ default_start if p.name == 'start_date' else today }}" required>
+                {% elif p.type == 'number' %}
+                  <input type="number" step="0.01" min="0" name="{{ p.name }}" value="250.00" required>
+                {% else %}
+                  <input type="text" name="{{ p.name }}" required>
+                {% endif %}
+              </label>
+            {% endfor %}
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <span class="muted text-sm">{{ proc.engine_note }}</span>
+              <button type="submit" class="btn btn-sm">Run Procedure</button>
+            </div>
+          </form>
+        {% else %}
+          <p class="muted text-sm" style="margin:0;">
+            This procedure is not installed in the connected database. Run <code>init_schema.sql</code> to install it.
+          </p>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- ============================ TRIGGERS ============================ -->
+<div class="panel" id="triggers">
+  <div class="panel-header">
+    <div>
+      <h2 style="margin:0 0 4px;">3. Database Triggers</h2>
+      <p class="muted text-sm" style="margin:0;">
+        Triggers enforce seat availability, prevent scheduling conflicts, keep seat counts accurate,
+        and cascade booking cancellations automatically.
+      </p>
+    </div>
+    <span class="badge badge-accent">{{ objects.triggers|length }} triggers</span>
+  </div>
+
+  <div class="table-responsive">
+    <table>
+      <thead>
+        <tr>
+          <th>Trigger</th>
+          <th>Timing / Event</th>
+          <th>Table</th>
+          <th>Description</th>
+          <th>Status</th>
+          <th>Definition</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in objects.triggers %}
+          <tr>
+            <td style="font-family:monospace;color:var(--accent-light);font-weight:700;">{{ t.name }}</td>
+            <td>{{ t.timing }} {{ t.event }}</td>
+            <td><code>{{ t.table }}</code></td>
+            <td class="muted text-sm">{{ t.description }}</td>
+            <td>
+              <span class="badge {{ 'badge-success' if t.installed else 'badge-danger' }}">
+                {{ 'Installed' if t.installed else 'Missing' }}
+              </span>
+            </td>
+            <td>
+              {% if t.sql %}
+                <details>
+                  <summary class="muted text-sm" style="cursor:pointer;">Show SQL</summary>
+                  <pre style="white-space:pre-wrap;font-size:0.72rem;background:#0f0c1d;padding:10px;border-radius:6px;max-height:220px;overflow:auto;">{{ t.sql }}</pre>
+                </details>
+              {% else %}
+                <span class="muted text-sm">-</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ========================= TRIGGER TEST LAB ========================= -->
+<div class="panel" id="trigger-tests">
+  <div class="panel-header">
+    <div>
+      <h2 style="margin:0 0 4px;">4. Trigger Test Lab</h2>
+      <p class="muted text-sm" style="margin:0;">
+        Run each business-rule test safely. The test transaction is rolled back afterwards, so the live
+        database and JSON exports remain unchanged.
+      </p>
+    </div>
+    <span class="badge badge-accent">Safe rollback tests</span>
+  </div>
+
+  <div class="grid" style="grid-template-columns:1fr 1fr;gap:16px;">
+    {% for test_key, test in objects.trigger_tests.items() %}
+      <div class="panel" style="margin:0;background:rgba(28,23,50,0.7);">
+        <h3 style="margin:0 0 6px;">{{ test.title }}</h3>
+        <p class="muted text-sm" style="margin:0 0 12px;">{{ test.description }}</p>
+        <form method="post" action="{{ url_for('admin_run_db_trigger_test', test_key=test_key) }}">
+          <button type="submit" class="btn btn-secondary btn-sm">Run Test</button>
+        </form>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

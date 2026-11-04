@@ -270,5 +270,44 @@ class CineSphereTestCase(unittest.TestCase):
         self.assertIn('UPDATE_SCREENING', actions)
         self.assertIn('UPDATE_MOVIE', actions)
 
+    def test_11_database_objects_console(self):
+        # Login as manager
+        self.client.post('/login', data={'email': 'manager@cinesphere.com', 'password': 'Manager@123'}, follow_redirects=True)
+
+        # Verify database objects exist
+        objects = database.get_db_objects()
+        self.assertEqual(len(objects['views']), 7)
+        self.assertEqual(len(objects['procedures']), 6)
+        self.assertEqual(len(objects['triggers']), 9)
+        self.assertTrue(all(v['installed'] for v in objects['views']))
+        self.assertTrue(all(t['installed'] for t in objects['triggers']))
+
+        # Verify the admin console page renders
+        res = self.client.get('/admin/db-objects')
+        self.assertEqual(res.status_code, 200)
+        html = res.data.decode('utf-8')
+        self.assertIn('Views, Stored Procedures', html)
+        self.assertIn('vw_booking_details', html)
+        self.assertIn('sp_get_customer_bookings', html)
+        self.assertIn('trg_prevent_double_booking', html)
+        self.assertIsNone(re.search(r'[\U00010000-\U0010ffff]', html), "Found emoji in db_objects.html!")
+
+        # Preview a view through the console
+        res_view = self.client.get('/admin/db-objects?view=vw_movie_performance')
+        self.assertEqual(res_view.status_code, 200)
+        self.assertIn('Live preview', res_view.data.decode('utf-8'))
+
+        # Run a stored procedure through the console
+        res_proc = self.client.post('/admin/db-objects/procedure/sp_get_customer_bookings', data={'customer_id': '2'})
+        self.assertEqual(res_proc.status_code, 200)
+        self.assertIn('Stored Procedure Result', res_proc.data.decode('utf-8'))
+
+        # Run a safe trigger test through the console
+        res_trigger = self.client.post('/admin/db-objects/trigger-test/double_booking')
+        self.assertEqual(res_trigger.status_code, 200)
+        trigger_html = res_trigger.data.decode('utf-8')
+        self.assertIn('Trigger Test Result', trigger_html)
+        self.assertIn('PASS', trigger_html)
+
 if __name__ == '__main__':
     unittest.main()

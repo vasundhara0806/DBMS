@@ -26,6 +26,11 @@ if database.ACTIVE_ENGINE == 'sqlite':
                 database.init_sqlite_db()
         except Exception:
             database.init_sqlite_db()
+    # Make sure views, triggers and procedure emulation are present on existing databases
+    try:
+        database.ensure_sqlite_db_objects()
+    except Exception as exc:
+        print(f"Notice: could not install SQLite views/triggers: {exc}")
 
 def login_required(fn):
     @wraps(fn)
@@ -971,36 +976,56 @@ def admin_portal():
     genres = database.query("SELECT * FROM genre ORDER BY genre_name")
     cities = database.query("SELECT * FROM city ORDER BY city_name")
 
-    # Revenue by Movie breakdown
-    revenue_by_movie = database.query(
-        """
-        SELECT m.title, COUNT(DISTINCT b.booking_id) AS total_bookings,
-               COUNT(bs.booking_seat_id) AS total_tickets,
-               COALESCE(SUM(b.total_amount), 0) AS gross_revenue
-        FROM movie m
-        LEFT JOIN screening s ON s.movie_id = m.movie_id
-        LEFT JOIN booking b ON b.screening_id = s.screening_id AND b.booking_status = 'CONFIRMED'
-        LEFT JOIN booking_seat bs ON bs.booking_id = b.booking_id AND bs.seat_status = 'BOOKED'
-        GROUP BY m.movie_id
-        ORDER BY gross_revenue DESC
-        """
-    )
+    # Revenue by Movie breakdown (uses the vw_movie_performance database view)
+    try:
+        revenue_by_movie = database.query(
+            """
+            SELECT movie_id, title, total_bookings,
+                   tickets_sold AS total_tickets, gross_revenue
+            FROM vw_movie_performance
+            ORDER BY gross_revenue DESC, title
+            """
+        )
+    except Exception:
+        revenue_by_movie = database.query(
+            """
+            SELECT m.title, COUNT(DISTINCT b.booking_id) AS total_bookings,
+                   COUNT(bs.booking_seat_id) AS total_tickets,
+                   COALESCE(SUM(b.total_amount), 0) AS gross_revenue
+            FROM movie m
+            LEFT JOIN screening s ON s.movie_id = m.movie_id
+            LEFT JOIN booking b ON b.screening_id = s.screening_id AND b.booking_status = 'CONFIRMED'
+            LEFT JOIN booking_seat bs ON bs.booking_id = b.booking_id AND bs.seat_status = 'BOOKED'
+            GROUP BY m.movie_id
+            ORDER BY gross_revenue DESC
+            """
+        )
 
-    # Revenue by Theater breakdown
-    revenue_by_theater = database.query(
-        """
-        SELECT t.theater_name, c.city_name,
-               COUNT(DISTINCT b.booking_id) AS total_bookings,
-               COALESCE(SUM(b.total_amount), 0) AS gross_revenue
-        FROM theater t
-        JOIN city c ON c.city_id = t.city_id
-        LEFT JOIN screen sc ON sc.theater_id = t.theater_id
-        LEFT JOIN screening s ON s.screen_id = sc.screen_id
-        LEFT JOIN booking b ON b.screening_id = s.screening_id AND b.booking_status = 'CONFIRMED'
-        GROUP BY t.theater_id
-        ORDER BY gross_revenue DESC
-        """
-    )
+    # Revenue by Theater breakdown (uses the vw_theater_performance database view)
+    try:
+        revenue_by_theater = database.query(
+            """
+            SELECT theater_id, theater_name, city_name,
+                   total_bookings, gross_revenue
+            FROM vw_theater_performance
+            ORDER BY gross_revenue DESC, theater_name
+            """
+        )
+    except Exception:
+        revenue_by_theater = database.query(
+            """
+            SELECT t.theater_name, c.city_name,
+                   COUNT(DISTINCT b.booking_id) AS total_bookings,
+                   COALESCE(SUM(b.total_amount), 0) AS gross_revenue
+            FROM theater t
+            JOIN city c ON c.city_id = t.city_id
+            LEFT JOIN screen sc ON sc.theater_id = t.theater_id
+            LEFT JOIN screening s ON s.screen_id = sc.screen_id
+            LEFT JOIN booking b ON b.screening_id = s.screening_id AND b.booking_status = 'CONFIRMED'
+            GROUP BY t.theater_id
+            ORDER BY gross_revenue DESC
+            """
+        )
 
     activity_log = json_sync.get_activity_log(limit=60)
     db_state = json_sync.get_database_state()
@@ -1079,6 +1104,174 @@ def admin_screening_occupancy(screening_id):
         'occupancy_rate': rate,
         'seats': [dict(s) for s in seats]
     })
+
+# ==========================================
+# DATABASE OBJECTS CONSOLE (VIEWS / PROCEDURES / TRIGGERS)
+# ==========================================
+
+def _db_object_form_options():
+    """Dropdown data used by the stored-procedure runner forms."""
+    customers = database.query("SELECT customer_id, full_name, email FROM customer ORDER BY full_name")
+    movies = database.query("SELECT movie_id, title FROM movie ORDER BY title")
+    screenings = database.query(
+        """
+        SELECT s.screening_id, s.screening_date, m.title, t.theater_name, sl.slot_name
+        FROM screening s
+        JOIN movie m ON m.movie_id = s.movie_id
+        JOIN screen sc ON sc.screen_id = s.screen_id
+        JOIN theater t ON t.theater_id = sc.theater_id
+        JOIN slot sl ON sl.slot_id = s.slot_id
+        ORDER BY s.screening_date DESC, sl.start_time
+        """
+    )
+    screens = database.query(
+        """
+        SELECT sc.screen_id, sc.screen_name, t.theater_name
+        FROM screen sc
+        JOIN theater t ON t.theater_id = sc.theater_id
+        ORDER BY t.theater_name, sc.screen_name
+        """
+    )
+    slots = database.query("SELECT slot_id, slot_name, start_time FROM slot ORDER BY start_time")
+    bookings = database.query(
+        """
+        SELECT booking_id, booking_reference, booking_status, total_amount
+        FROM booking ORDER BY booking_id DESC
+        """
+    )
+    return {
+        'customers': [
+            {'value': c['customer_id'], 'label': f"{c['full_name']} ({c['email']})"}
+            for c in customers
+        ],
+        'movies': [
+            {'value': m['movie_id'], 'label': f"#{m['movie_id']} · {m['title']}"}
+            for m in movies
+        ],
+        'screenings': [
+            {'value': s['screening_id'],
+             'label': f"#{s['screening_id']} · {s['title']} · {s['theater_name']} · {s['screening_date']} {s['slot_name']}"}
+            for s in screenings
+        ],
+        'screens': [
+            {'value': s['screen_id'], 'label': f"#{s['screen_id']} · {s['theater_name']} · {s['screen_name']}"}
+            for s in screens
+        ],
+        'slots': [
+            {'value': s['slot_id'], 'label': f"#{s['slot_id']} · {s['slot_name']} ({s['start_time']})"}
+            for s in slots
+        ],
+        'bookings': [
+            {'value': b['booking_id'],
+             'label': f"{b['booking_reference']} · {b['booking_status']} · Rs. {float(b['total_amount']):.2f}"}
+            for b in bookings
+        ]
+    }
+
+
+def _render_db_objects(view_preview=None, proc_result=None, trigger_result=None):
+    today = date.today()
+    return render_template(
+        'db_objects.html',
+        objects=database.get_db_objects(),
+        form_options=_db_object_form_options(),
+        view_preview=view_preview,
+        proc_result=proc_result,
+        trigger_result=trigger_result,
+        today=today.isoformat(),
+        default_start=(today.replace(day=1)).isoformat()
+    )
+
+
+@app.route('/admin/db-objects')
+@manager_required
+def admin_db_objects():
+    view_name = request.args.get('view')
+    view_preview = None
+    if view_name:
+        if view_name in database.DB_VIEWS:
+            try:
+                view_preview = {
+                    'name': view_name,
+                    'rows': database.preview_db_view(view_name),
+                    'error': None
+                }
+            except Exception as exc:
+                view_preview = {'name': view_name, 'rows': [], 'error': str(exc)}
+        else:
+            flash('Unknown database view requested.')
+    return _render_db_objects(view_preview=view_preview)
+
+
+@app.route('/admin/db-objects/procedure/<procedure_name>', methods=['POST'])
+@manager_required
+def admin_run_db_procedure(procedure_name):
+    meta = database.DB_PROCEDURES.get(procedure_name)
+    if not meta:
+        flash('Unknown stored procedure requested.')
+        return redirect(url_for('admin_db_objects'))
+
+    params = []
+    try:
+        for spec in meta['params']:
+            raw = request.form.get(spec['name'], '').strip()
+            if spec['type'] == 'number':
+                params.append(float(raw))
+            elif spec['type'] == 'select':
+                params.append(int(raw))
+            else:
+                params.append(raw)
+        rows = database.call_db_procedure(procedure_name, params)
+        proc_result = {
+            'name': procedure_name,
+            'params': params,
+            'rows': rows,
+            'error': None
+        }
+
+        # Keep the JSON mirror in sync for procedures that mutate data
+        try:
+            if procedure_name == 'sp_cancel_booking' and rows and rows[0].get('result') == 'CANCELLED':
+                json_sync.sync_all(
+                    "CANCEL_BOOKING",
+                    "booking",
+                    f"Booking #{params[0]} cancelled through stored procedure sp_cancel_booking()",
+                    details={"booking_id": params[0], "procedure": procedure_name},
+                    user=session.get('customer_name', 'Manager')
+                )
+            elif procedure_name == 'sp_schedule_screening' and rows and rows[0].get('result') == 'SCHEDULED':
+                json_sync.sync_all(
+                    "INSERT_SCREENING",
+                    "screening",
+                    f"Showtime #{rows[0].get('screening_id')} created through stored procedure sp_schedule_screening()",
+                    details={"procedure": procedure_name, "screening_id": rows[0].get('screening_id')},
+                    user=session.get('customer_name', 'Manager')
+                )
+        except Exception as sync_error:
+            print(f"Notice: JSON sync after procedure: {sync_error}")
+    except Exception as exc:
+        proc_result = {
+            'name': procedure_name,
+            'params': params,
+            'rows': [],
+            'error': str(exc)
+        }
+    return _render_db_objects(proc_result=proc_result)
+
+
+@app.route('/admin/db-objects/trigger-test/<test_key>', methods=['POST'])
+@manager_required
+def admin_run_db_trigger_test(test_key):
+    try:
+        trigger_result = database.run_db_trigger_test(test_key)
+    except Exception as exc:
+        trigger_result = {
+            'key': test_key,
+            'title': database.DB_TRIGGER_TESTS.get(test_key, {}).get('title', 'Trigger test'),
+            'passed': False,
+            'details': str(exc)
+        }
+    return _render_db_objects(trigger_result=trigger_result)
 
 # ==========================================
 # SHOWTIME / SCREENING CRUD & EDITING

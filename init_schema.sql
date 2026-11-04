@@ -395,3 +395,400 @@ VALUES (4, 'TCK-HYD-8803-01', 'CANCELLED');
 
 INSERT INTO payment (booking_id, amount, payment_method, payment_status, transaction_reference)
 VALUES (3, 250.00, 'UPI', 'REFUNDED', 'TXN-UPI-7718298803');
+
+-- =======================================================
+-- DATABASE VIEWS
+-- =======================================================
+-- Views provide reusable, read-only reporting layers over the 17 base tables.
+-- The Flask Manager Portal reads its financial analytics and procedure output
+-- from these views.
+
+-- 1. Booking-level totals (one row per booking, with seat count)
+CREATE OR REPLACE VIEW vw_booking_totals AS
+SELECT b.booking_id, b.booking_reference, b.customer_id, b.screening_id,
+       b.booking_date, b.total_amount, b.booking_status,
+       COUNT(bs.booking_seat_id) AS tickets
+FROM booking b
+LEFT JOIN booking_seat bs ON bs.booking_id = b.booking_id
+GROUP BY b.booking_id, b.booking_reference, b.customer_id, b.screening_id,
+         b.booking_date, b.total_amount, b.booking_status;
+
+-- 2. Complete booking audit view (customer + movie + theater + screen + slot + payment)
+CREATE OR REPLACE VIEW vw_booking_details AS
+SELECT b.booking_id, b.booking_reference, b.booking_date, b.total_amount, b.booking_status,
+       cust.customer_id, cust.full_name AS customer_name, cust.email AS customer_email,
+       cust.phone AS customer_phone,
+       m.movie_id, m.title AS movie_title, m.language, m.dimension,
+       t.theater_id, t.theater_name, t.location_area, c.city_name,
+       sc.screen_id, sc.screen_name, sc.screen_type,
+       s.screening_id, s.screening_date, sl.slot_name, sl.start_time,
+       p.payment_method, p.payment_status, p.transaction_reference
+FROM booking b
+JOIN customer cust ON cust.customer_id = b.customer_id
+JOIN screening s ON s.screening_id = b.screening_id
+JOIN movie m ON m.movie_id = s.movie_id
+JOIN screen sc ON sc.screen_id = s.screen_id
+JOIN theater t ON t.theater_id = sc.theater_id
+JOIN city c ON c.city_id = t.city_id
+JOIN slot sl ON sl.slot_id = s.slot_id
+LEFT JOIN payment p ON p.booking_id = b.booking_id;
+
+-- 3. Movie performance: bookings, tickets and gross revenue per movie
+CREATE OR REPLACE VIEW vw_movie_performance AS
+SELECT m.movie_id, m.title, m.language, m.dimension,
+       COUNT(DISTINCT bt.booking_id) AS total_bookings,
+       COALESCE(SUM(CASE WHEN bt.booking_status = 'CONFIRMED' THEN bt.tickets ELSE 0 END), 0) AS tickets_sold,
+       ROUND(COALESCE(SUM(CASE WHEN bt.booking_status = 'CONFIRMED' THEN bt.total_amount ELSE 0 END), 0), 2) AS gross_revenue
+FROM movie m
+LEFT JOIN screening s ON s.movie_id = m.movie_id
+LEFT JOIN vw_booking_totals bt ON bt.screening_id = s.screening_id
+GROUP BY m.movie_id, m.title, m.language, m.dimension;
+
+-- 4. Theater performance: screens, bookings and gross revenue per venue
+CREATE OR REPLACE VIEW vw_theater_performance AS
+SELECT t.theater_id, t.theater_name, c.city_name, c.state,
+       COUNT(DISTINCT sc.screen_id) AS total_screens,
+       COUNT(DISTINCT bt.booking_id) AS total_bookings,
+       ROUND(COALESCE(SUM(CASE WHEN bt.booking_status = 'CONFIRMED' THEN bt.total_amount ELSE 0 END), 0), 2) AS gross_revenue
+FROM theater t
+JOIN city c ON c.city_id = t.city_id
+LEFT JOIN screen sc ON sc.theater_id = t.theater_id
+LEFT JOIN screening s ON s.screen_id = sc.screen_id
+LEFT JOIN vw_booking_totals bt ON bt.screening_id = s.screening_id
+GROUP BY t.theater_id, t.theater_name, c.city_name, c.state;
+
+-- 5. Live seat occupancy per screening
+CREATE OR REPLACE VIEW vw_screening_occupancy AS
+SELECT s.screening_id, s.screening_date, s.base_price, s.status,
+       m.movie_id, m.title AS movie_title,
+       t.theater_id, t.theater_name, c.city_name,
+       sc.screen_id, sc.screen_name, sc.screen_type,
+       sl.slot_name, sl.start_time,
+       COUNT(DISTINCT se.seat_id) AS total_seats,
+       COUNT(DISTINCT CASE WHEN b.booking_status = 'CONFIRMED' AND bs.seat_status = 'BOOKED'
+                           THEN bs.booking_seat_id END) AS booked_seats,
+       ROUND(
+           CASE WHEN COUNT(DISTINCT se.seat_id) = 0 THEN 0
+                ELSE COUNT(DISTINCT CASE WHEN b.booking_status = 'CONFIRMED' AND bs.seat_status = 'BOOKED'
+                                         THEN bs.booking_seat_id END) * 100.0
+                     / COUNT(DISTINCT se.seat_id)
+           END, 1) AS occupancy_percent
+FROM screening s
+JOIN movie m ON m.movie_id = s.movie_id
+JOIN screen sc ON sc.screen_id = s.screen_id
+JOIN theater t ON t.theater_id = sc.theater_id
+JOIN city c ON c.city_id = t.city_id
+JOIN slot sl ON sl.slot_id = s.slot_id
+LEFT JOIN seat se ON se.screen_id = sc.screen_id AND se.is_active = TRUE
+LEFT JOIN booking_seat bs ON bs.seat_id = se.seat_id
+LEFT JOIN booking b ON b.booking_id = bs.booking_id AND b.screening_id = s.screening_id
+GROUP BY s.screening_id, s.screening_date, s.base_price, s.status, m.movie_id, m.title,
+         t.theater_id, t.theater_name, c.city_name, sc.screen_id, sc.screen_name,
+         sc.screen_type, sl.slot_name, sl.start_time;
+
+-- 6. Customer spend and booking history
+CREATE OR REPLACE VIEW vw_customer_spend AS
+SELECT c.customer_id, c.full_name, c.email, c.phone, c.role,
+       COUNT(DISTINCT bt.booking_id) AS total_bookings,
+       COUNT(DISTINCT CASE WHEN bt.booking_status = 'CONFIRMED' THEN bt.booking_id END) AS confirmed_bookings,
+       COALESCE(SUM(CASE WHEN bt.booking_status = 'CONFIRMED' THEN bt.tickets ELSE 0 END), 0) AS tickets_bought,
+       ROUND(COALESCE(SUM(CASE WHEN bt.booking_status = 'CONFIRMED' THEN bt.total_amount ELSE 0 END), 0), 2) AS total_spent
+FROM customer c
+LEFT JOIN vw_booking_totals bt ON bt.customer_id = c.customer_id
+GROUP BY c.customer_id, c.full_name, c.email, c.phone, c.role;
+
+-- 7. Concession sales summary
+CREATE OR REPLACE VIEW vw_concession_sales AS
+SELECT ci.item_id, ci.item_name, ci.category, ci.price,
+       COALESCE(SUM(CASE WHEN b.booking_status = 'CONFIRMED' THEN bc.quantity ELSE 0 END), 0) AS units_sold,
+       ROUND(COALESCE(SUM(CASE WHEN b.booking_status = 'CONFIRMED' THEN bc.subtotal ELSE 0 END), 0), 2) AS gross_revenue
+FROM concession_item ci
+LEFT JOIN booking_concession bc ON bc.item_id = ci.item_id
+LEFT JOIN booking b ON b.booking_id = bc.booking_id
+GROUP BY ci.item_id, ci.item_name, ci.category, ci.price;
+
+-- =======================================================
+-- STORED PROCEDURES
+-- =======================================================
+DELIMITER $$
+
+-- 1. Booking history for one customer
+DROP PROCEDURE IF EXISTS sp_get_customer_bookings$$
+CREATE PROCEDURE sp_get_customer_bookings(IN p_customer_id INT)
+BEGIN
+    SELECT booking_id, booking_reference, booking_date, total_amount, booking_status,
+           movie_title, theater_name, city_name, screen_name,
+           screening_date, slot_name, start_time
+    FROM vw_booking_details
+    WHERE customer_id = p_customer_id
+    ORDER BY booking_date DESC;
+END$$
+
+-- 2. Revenue summary for one movie
+DROP PROCEDURE IF EXISTS sp_get_movie_revenue$$
+CREATE PROCEDURE sp_get_movie_revenue(IN p_movie_id INT)
+BEGIN
+    SELECT movie_id, title, language, dimension, total_bookings, tickets_sold, gross_revenue
+    FROM vw_movie_performance
+    WHERE movie_id = p_movie_id;
+END$$
+
+-- 3. Available (vacant) seats with computed tier prices for a screening
+DROP PROCEDURE IF EXISTS sp_get_available_seats$$
+CREATE PROCEDURE sp_get_available_seats(IN p_screening_id INT)
+BEGIN
+    SELECT se.seat_id, se.row_label, se.seat_number,
+           cat.category_name,
+           ROUND(s.base_price * cat.price_multiplier, 2) AS price
+    FROM seat se
+    JOIN seat_category cat ON cat.category_id = se.category_id
+    JOIN screening s ON s.screening_id = p_screening_id
+    WHERE se.screen_id = s.screen_id
+      AND se.is_active = TRUE
+      AND NOT EXISTS (
+          SELECT 1
+          FROM booking_seat bs
+          JOIN booking b ON b.booking_id = bs.booking_id
+          WHERE bs.seat_id = se.seat_id
+            AND b.screening_id = s.screening_id
+            AND b.booking_status = 'CONFIRMED'
+            AND bs.seat_status = 'BOOKED'
+      )
+    ORDER BY se.row_label, se.seat_number;
+END$$
+
+-- 4. Revenue by movie for confirmed bookings between two dates
+DROP PROCEDURE IF EXISTS sp_revenue_report$$
+CREATE PROCEDURE sp_revenue_report(IN p_start_date DATE, IN p_end_date DATE)
+BEGIN
+    SELECT m.movie_id, m.title,
+           COUNT(DISTINCT b.booking_id) AS total_bookings,
+           COUNT(bs.booking_seat_id) AS tickets_sold,
+           ROUND(COALESCE(SUM(bs.ticket_price), 0), 2) AS seat_revenue
+    FROM booking b
+    JOIN screening s ON s.screening_id = b.screening_id
+    JOIN movie m ON m.movie_id = s.movie_id
+    JOIN booking_seat bs ON bs.booking_id = b.booking_id AND bs.seat_status = 'BOOKED'
+    WHERE b.booking_status = 'CONFIRMED'
+      AND s.screening_date BETWEEN p_start_date AND p_end_date
+    GROUP BY m.movie_id, m.title
+    ORDER BY seat_revenue DESC;
+END$$
+
+-- 5. Schedule a showtime with conflict checking
+DROP PROCEDURE IF EXISTS sp_schedule_screening$$
+CREATE PROCEDURE sp_schedule_screening(
+    IN p_movie_id INT,
+    IN p_screen_id INT,
+    IN p_slot_id INT,
+    IN p_screening_date DATE,
+    IN p_base_price DECIMAL(10,2)
+)
+BEGIN
+    DECLARE v_conflict INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO v_conflict
+    FROM screening
+    WHERE screen_id = p_screen_id
+      AND slot_id = p_slot_id
+      AND screening_date = p_screening_date
+      AND status = 'SCHEDULED';
+
+    IF v_conflict > 0 THEN
+        SELECT 'CONFLICT' AS result,
+               'This screen already has a scheduled show for the selected date and slot.' AS message,
+               NULL AS screening_id;
+    ELSE
+        INSERT INTO screening (movie_id, screen_id, slot_id, screening_date, base_price, status)
+        VALUES (p_movie_id, p_screen_id, p_slot_id, p_screening_date, p_base_price, 'SCHEDULED');
+
+        SELECT 'SCHEDULED' AS result,
+               'Showtime scheduled successfully.' AS message,
+               LAST_INSERT_ID() AS screening_id;
+    END IF;
+END$$
+
+-- 6. Cancel a booking; triggers cascade the cancellation to seats, tickets and payment
+DROP PROCEDURE IF EXISTS sp_cancel_booking$$
+CREATE PROCEDURE sp_cancel_booking(IN p_booking_id INT)
+BEGIN
+    DECLARE v_status VARCHAR(20) DEFAULT NULL;
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+        RESIGNAL;
+    END;
+
+    START TRANSACTION;
+
+    SELECT booking_status INTO v_status
+    FROM booking
+    WHERE booking_id = p_booking_id
+    FOR UPDATE;
+
+    IF v_status IS NULL THEN
+        ROLLBACK;
+        SELECT 'NOT_FOUND' AS result, CONCAT('Booking #', p_booking_id, ' was not found.') AS message;
+    ELSEIF v_status <> 'CONFIRMED' THEN
+        ROLLBACK;
+        SELECT 'INVALID_STATE' AS result, CONCAT('Booking #', p_booking_id, ' is already ', v_status, '.') AS message;
+    ELSE
+        UPDATE booking SET booking_status = 'CANCELLED' WHERE booking_id = p_booking_id;
+        COMMIT;
+        SELECT 'CANCELLED' AS result,
+               CONCAT('Booking #', p_booking_id, ' cancelled. Seats, tickets and payment were updated by triggers.') AS message;
+    END IF;
+END$$
+
+DELIMITER ;
+
+-- =======================================================
+-- TRIGGERS
+-- =======================================================
+DELIMITER $$
+
+-- 1. Cancelling a booking cascades seat, ticket and payment status
+DROP TRIGGER IF EXISTS trg_booking_status_cascade$$
+CREATE TRIGGER trg_booking_status_cascade
+AFTER UPDATE ON booking
+FOR EACH ROW
+BEGIN
+    IF NEW.booking_status = 'CANCELLED' AND OLD.booking_status <> 'CANCELLED' THEN
+        UPDATE booking_seat SET seat_status = 'CANCELLED' WHERE booking_id = NEW.booking_id;
+        UPDATE ticket SET ticket_status = 'CANCELLED'
+         WHERE booking_seat_id IN (SELECT booking_seat_id FROM booking_seat WHERE booking_id = NEW.booking_id);
+        UPDATE payment SET payment_status = 'REFUNDED'
+         WHERE booking_id = NEW.booking_id AND payment_status = 'SUCCESS';
+    END IF;
+END$$
+
+-- 2. Re-confirming a cancelled booking restores its dependent records
+DROP TRIGGER IF EXISTS trg_booking_restore_on_confirm$$
+CREATE TRIGGER trg_booking_restore_on_confirm
+AFTER UPDATE ON booking
+FOR EACH ROW
+BEGIN
+    IF NEW.booking_status = 'CONFIRMED' AND OLD.booking_status = 'CANCELLED' THEN
+        UPDATE booking_seat SET seat_status = 'BOOKED' WHERE booking_id = NEW.booking_id;
+        UPDATE ticket SET ticket_status = 'ACTIVE'
+         WHERE booking_seat_id IN (SELECT booking_seat_id FROM booking_seat WHERE booking_id = NEW.booking_id);
+        UPDATE payment SET payment_status = 'SUCCESS'
+         WHERE booking_id = NEW.booking_id AND payment_status = 'REFUNDED';
+    END IF;
+END$$
+
+-- 3. Prevent the same seat from being booked twice for one screening
+DROP TRIGGER IF EXISTS trg_prevent_double_booking$$
+CREATE TRIGGER trg_prevent_double_booking
+BEFORE INSERT ON booking_seat
+FOR EACH ROW
+BEGIN
+    DECLARE v_conflict INT DEFAULT 0;
+
+    SELECT COUNT(*) INTO v_conflict
+    FROM booking_seat bs
+    JOIN booking existing_booking ON existing_booking.booking_id = bs.booking_id
+    JOIN booking new_booking ON new_booking.booking_id = NEW.booking_id
+    WHERE bs.seat_id = NEW.seat_id
+      AND existing_booking.screening_id = new_booking.screening_id
+      AND existing_booking.booking_status = 'CONFIRMED'
+      AND bs.seat_status = 'BOOKED';
+
+    IF v_conflict > 0 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Seat is already booked for this screening';
+    END IF;
+END$$
+
+-- 4. Prevent conflicting showtime inserts for the same screen/date/slot
+DROP TRIGGER IF EXISTS trg_screening_conflict_insert$$
+CREATE TRIGGER trg_screening_conflict_insert
+BEFORE INSERT ON screening
+FOR EACH ROW
+BEGIN
+    IF NEW.status = 'SCHEDULED' AND EXISTS (
+        SELECT 1 FROM screening s
+        WHERE s.screen_id = NEW.screen_id
+          AND s.slot_id = NEW.slot_id
+          AND s.screening_date = NEW.screening_date
+          AND s.status = 'SCHEDULED'
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Screening conflict: screen already booked for this date and slot';
+    END IF;
+END$$
+
+-- 5. Same protection when an existing showtime is edited
+DROP TRIGGER IF EXISTS trg_screening_conflict_update$$
+CREATE TRIGGER trg_screening_conflict_update
+BEFORE UPDATE ON screening
+FOR EACH ROW
+BEGIN
+    IF NEW.status = 'SCHEDULED' AND EXISTS (
+        SELECT 1 FROM screening s
+        WHERE s.screen_id = NEW.screen_id
+          AND s.slot_id = NEW.slot_id
+          AND s.screening_date = NEW.screening_date
+          AND s.status = 'SCHEDULED'
+          AND s.screening_id <> NEW.screening_id
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'Screening conflict: screen already booked for this date and slot';
+    END IF;
+END$$
+
+-- 6. Keep screen.total_seats accurate after seat inserts
+DROP TRIGGER IF EXISTS trg_screen_seat_count_insert$$
+CREATE TRIGGER trg_screen_seat_count_insert
+AFTER INSERT ON seat
+FOR EACH ROW
+BEGIN
+    UPDATE screen
+       SET total_seats = (SELECT COUNT(*) FROM seat WHERE screen_id = NEW.screen_id AND is_active = TRUE)
+     WHERE screen_id = NEW.screen_id;
+END$$
+
+-- 7. Keep screen.total_seats accurate after seat activation changes
+DROP TRIGGER IF EXISTS trg_screen_seat_count_update$$
+CREATE TRIGGER trg_screen_seat_count_update
+AFTER UPDATE ON seat
+FOR EACH ROW
+BEGIN
+    IF NEW.is_active <> OLD.is_active OR NEW.screen_id <> OLD.screen_id THEN
+        UPDATE screen
+           SET total_seats = (SELECT COUNT(*) FROM seat WHERE screen_id = NEW.screen_id AND is_active = TRUE)
+         WHERE screen_id = NEW.screen_id;
+
+        IF NEW.screen_id <> OLD.screen_id THEN
+            UPDATE screen
+               SET total_seats = (SELECT COUNT(*) FROM seat WHERE screen_id = OLD.screen_id AND is_active = TRUE)
+             WHERE screen_id = OLD.screen_id;
+        END IF;
+    END IF;
+END$$
+
+-- 8. Keep screen.total_seats accurate after seat deletes
+DROP TRIGGER IF EXISTS trg_screen_seat_count_delete$$
+CREATE TRIGGER trg_screen_seat_count_delete
+AFTER DELETE ON seat
+FOR EACH ROW
+BEGIN
+    UPDATE screen
+       SET total_seats = (SELECT COUNT(*) FROM seat WHERE screen_id = OLD.screen_id AND is_active = TRUE)
+     WHERE screen_id = OLD.screen_id;
+END$$
+
+-- 9. Mirror booking_seat status changes onto its ticket
+DROP TRIGGER IF EXISTS trg_booking_seat_ticket_sync$$
+CREATE TRIGGER trg_booking_seat_ticket_sync
+AFTER UPDATE ON booking_seat
+FOR EACH ROW
+BEGIN
+    IF NEW.seat_status = 'CANCELLED' THEN
+        UPDATE ticket SET ticket_status = 'CANCELLED' WHERE booking_seat_id = NEW.booking_seat_id;
+    ELSEIF NEW.seat_status = 'BOOKED' THEN
+        UPDATE ticket SET ticket_status = 'ACTIVE' WHERE booking_seat_id = NEW.booking_seat_id;
+    END IF;
+END$$
+
+DELIMITER ;

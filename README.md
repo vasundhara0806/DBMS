@@ -70,6 +70,54 @@ A full-stack DBMS application built with **Flask**, **MySQL 8.x** (with automati
 
 ---
 
+## Database Views, Stored Procedures & Triggers
+
+The schema ships with real database objects that are demonstrated live in the Manager Portal
+(**Views, Procedures & Triggers** tab, also at `/admin/db-objects`).
+
+### 7 Views
+| View | Purpose |
+|---|---|
+| `vw_booking_totals` | One row per booking with its seat count |
+| `vw_booking_details` | Full audit join: customer, movie, theater, screen, slot and payment |
+| `vw_movie_performance` | Bookings, tickets and gross revenue per movie |
+| `vw_theater_performance` | Screens, bookings and gross revenue per theater |
+| `vw_screening_occupancy` | Total vs booked seats and occupancy percentage per show |
+| `vw_customer_spend` | Customer booking counts, tickets and total spend |
+| `vw_concession_sales` | Food & beverage units sold and revenue |
+
+### 6 Stored Procedures
+| Procedure | Purpose |
+|---|---|
+| `sp_get_customer_bookings(customer_id)` | Full booking history for a customer |
+| `sp_get_movie_revenue(movie_id)` | Revenue summary for one movie |
+| `sp_get_available_seats(screening_id)` | Vacant seats with computed tier prices |
+| `sp_revenue_report(start_date, end_date)` | Revenue by movie for a date range |
+| `sp_schedule_screening(movie_id, screen_id, slot_id, date, price)` | Conflict-checked showtime insert |
+| `sp_cancel_booking(booking_id)` | Cancels a confirmed booking and refunds its payment |
+
+> MySQL uses native stored procedures (`CALL`). SQLite has no stored-procedure language, so the same
+> procedures are emulated by the Python data layer; the admin console runs either version transparently.
+
+### 9 Triggers
+| Trigger | Rule enforced |
+|---|---|
+| `trg_booking_status_cascade` | Cancelling a booking cancels its seats/tickets and refunds payment |
+| `trg_booking_restore_on_confirm` | Re-confirming a booking restores seats, tickets and payment |
+| `trg_prevent_double_booking` | Blocks the same seat being booked twice for one screening |
+| `trg_screening_conflict_insert` | Blocks duplicate screen/date/slot showtimes |
+| `trg_screening_conflict_update` | Blocks conflicting showtime edits |
+| `trg_screen_seat_count_insert` | Keeps `screen.total_seats` correct after seat inserts |
+| `trg_screen_seat_count_update` | Keeps the count correct when seats are activated/deactivated |
+| `trg_screen_seat_count_delete` | Keeps the count correct after seat deletes |
+| `trg_booking_seat_ticket_sync` | Mirrors seat status changes onto the linked ticket |
+
+The console includes a **Trigger Test Lab** that exercises each rule inside a transaction and rolls
+it back, so live demo data is never modified. The Financial Analytics tab now reads directly from
+`vw_movie_performance` and `vw_theater_performance`.
+
+---
+
 ## Getting Started
 
 ### 1. Requirements

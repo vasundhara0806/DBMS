@@ -118,6 +118,9 @@
   <button class="admin-tab-btn {% if active_tab == 'analytics' %}active{% endif %}" onclick="switchAdminTab('analytics', this)">
     Financial Analytics
   </button>
+  <a class="admin-tab-btn" href="{{ url_for('admin_db_objects') }}" style="text-decoration:none;">
+    Views, Procedures &amp; Triggers
+  </a>
 </div>
 
 <!-- ======================================================== -->

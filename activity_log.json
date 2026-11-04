@@ -433,5 +433,138 @@
       "status": "CANCELLED",
       "payment_status": "REFUNDED"
     }
+  },
+  {
+    "id": 33,
+    "timestamp": "2026-11-04 10:42:24",
+    "action": "INITIALIZE_DATABASE",
+    "table": "system",
+    "user": "System Initializer",
+    "summary": "Database initialized with views, stored procedures and triggers",
+    "details": {}
+  },
+  {
+    "id": 34,
+    "timestamp": "2026-11-04 11:22:07",
+    "action": "INITIALIZE_DATABASE",
+    "table": "system",
+    "user": "System Initializer",
+    "summary": "Database initialized with full 17-table schema and BookMyShow seed data",
+    "details": {}
+  },
+  {
+    "id": 35,
+    "timestamp": "2026-11-04 11:22:08",
+    "action": "CREATE_BOOKING",
+    "table": "booking",
+    "user": "Arjun Kumar",
+    "summary": "Booking CS-2026-BGT86G placed: 2 seat(s) for 'The Martian' (Total: Rs. 860.00)",
+    "details": {
+      "booking_id": 4,
+      "booking_reference": "CS-2026-BGT86G",
+      "customer_name": "Arjun Kumar",
+      "movie": "The Martian",
+      "seats_count": 2,
+      "total_amount": 860.0,
+      "payment_method": "UPI",
+      "transaction_reference": "TXN-UPI-4-ABAC8C58"
+    }
+  },
+  {
+    "id": 36,
+    "timestamp": "2026-11-04 11:22:08",
+    "action": "UPDATE_MOVIE",
+    "table": "movie",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated movie #1 'The Martian Extended Edition' (English, UA)",
+    "details": {
+      "movie_id": 1,
+      "title": "The Martian Extended Edition",
+      "duration": 155,
+      "language": "English"
+    }
+  },
+  {
+    "id": 37,
+    "timestamp": "2026-11-04 11:22:09",
+    "action": "UPDATE_SCREENING",
+    "table": "screening",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated showtime #1: Date 2026-11-01, Price Rs. 290.00, Status SCHEDULED",
+    "details": {
+      "screening_id": 1,
+      "movie_id": "1",
+      "screen_id": "1",
+      "slot_id": "1",
+      "date": "2026-11-01",
+      "price": "290.00",
+      "status": "SCHEDULED"
+    }
+  },
+  {
+    "id": 38,
+    "timestamp": "2026-11-04 11:22:09",
+    "action": "UPDATE_THEATER",
+    "table": "theater",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated theater #1 'CineSphere Luxe Banjara Hills Premium' (Banjara Hills Rd 2)",
+    "details": {
+      "theater_id": 1,
+      "theater_name": "CineSphere Luxe Banjara Hills Premium",
+      "location_area": "Banjara Hills Rd 2"
+    }
+  },
+  {
+    "id": 39,
+    "timestamp": "2026-11-04 11:22:09",
+    "action": "UPDATE_SCREEN",
+    "table": "screen",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated screen #1 'Screen 1 (IMAX Laser Dual 4K)' (IMAX Laser)",
+    "details": {
+      "screen_id": 1,
+      "screen_name": "Screen 1 (IMAX Laser Dual 4K)",
+      "screen_type": "IMAX Laser"
+    }
+  },
+  {
+    "id": 40,
+    "timestamp": "2026-11-04 11:22:09",
+    "action": "UPDATE_CONCESSION",
+    "table": "concession_item",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated concession snack #1 'Jumbo Caramel Gourmet Popcorn' to Rs. 280.00",
+    "details": {
+      "item_id": 1,
+      "item_name": "Jumbo Caramel Gourmet Popcorn",
+      "category": "Popcorn",
+      "price": 280.0
+    }
+  },
+  {
+    "id": 41,
+    "timestamp": "2026-11-04 11:22:09",
+    "action": "UPDATE_SEAT_CATEGORY",
+    "table": "seat_category",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Updated seat category 'VIP Recliner Supreme' pricing multiplier to 1.75x",
+    "details": {
+      "category_id": 1,
+      "category_name": "VIP Recliner Supreme",
+      "price_multiplier": 1.75
+    }
+  },
+  {
+    "id": 42,
+    "timestamp": "2026-11-04 11:22:09",
+    "action": "UPDATE_BOOKING_STATUS",
+    "table": "booking",
+    "user": "Vikram Malhotra (Operations Manager)",
+    "summary": "Admin updated Booking #2 status to 'CANCELLED'",
+    "details": {
+      "booking_id": 2,
+      "status": "CANCELLED",
+      "payment_status": "REFUNDED"
+    }
   }
 ]
